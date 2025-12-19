@@ -19,38 +19,38 @@ SCENARIOS = {
         phases=[
             {
                 "time": 0,
-                "label": "Preparation",
-                "desc": "Reactor power reduced for safety test. Xenon poisoning begins to accumulate due to rapid power drop.",
-                "telemetry": {"power_mw": 1600, "temp": 280, "flux": 0.5, "rods": 30, "reactivity": -0.001, "period": 999, "health": 100.0, "radiation_released": 0.0},
-                "analysis": "Xenon-135 acts as a neutron absorber. Operators struggle to maintain power."
+                "label": "Test Preparation",
+                "desc": "Power lowered to 700 MW for the test. Xenon poisoning builds up due to delays. Operators withdraw rods to maintain power.",
+                "telemetry": {"power_mw": 700, "temp": 280, "pressure": 65, "flux": 0.2, "rods": 15, "health": 100.0, "radiation_released": 0.0},
+                "analysis": "The ORM (Operational Reactivity Margin) is dangerously low as too many rods are out."
+            },
+            {
+                "time": 30,
+                "label": "Test Start",
+                "desc": "01:23:04 - Turbine stop valves closed. Coolant pumps slow down. Water starts boiling in the channels.",
+                "telemetry": {"power_mw": 200, "temp": 285, "pressure": 67, "flux": 0.1, "rods": 8, "health": 100.0, "radiation_released": 0.0},
+                "analysis": "Void effect begins adding positive reactivity. Boiling increases because flow is dropping."
             },
             {
                 "time": 40,
-                "label": "Instability",
-                "desc": "Power falls too low (30 MW). Operators withdraw nearly all control rods to compensate, violating safety protocols.",
-                "telemetry": {"power_mw": 30, "temp": 250, "flux": 0.05, "rods": 5, "reactivity": 0.000, "period": 60, "health": 100.0, "radiation_released": 0.0},
-                "analysis": "Core is now extremely unstable. Positive void coefficient dominates."
+                "label": "Prompt Jump",
+                "desc": "01:23:40 - Power starts rising uncontrollably. Positive feedback loop between steam and power kicks in.",
+                "telemetry": {"power_mw": 500, "temp": 350, "pressure": 75, "flux": 0.5, "rods": 8, "health": 95.0, "radiation_released": 0.1},
+                "analysis": "RBMK's positive void coefficient is now dominating the reactor physics."
             },
             {
-                "time": 80,
-                "label": "Test Start",
-                "desc": "Turbine test begins. Coolant pumps slow down. Water boils to steam -> Void effect increases reactivity.",
-                "telemetry": {"power_mw": 200, "temp": 320, "flux": 0.15, "rods": 5, "reactivity": 0.002, "period": 10, "health": 100.0, "radiation_released": 0.0},
-                "analysis": "Building positive feedback loop. Automatic control cannot compensate."
+                "time": 43,
+                "label": "AZ-5 Pressed",
+                "desc": "01:23:40 - SCRAM button pressed. Rods begin to enter, but graphite tips reach the core first.",
+                "telemetry": {"power_mw": 1500, "temp": 600, "pressure": 90, "flux": 2.0, "rods": 50, "health": 80.0, "radiation_released": 0.5},
+                "analysis": "The 'Positive Scram' effect: Graphite tips displace water at the bottom, adding more reactivity."
             },
             {
-                "time": 100,
-                "label": "The Surge",
-                "desc": "Power skyrockets. AZ-5 button pressed (SCRAM). Graphite tips of rods displace water, adding MORE reactivity.",
-                "telemetry": {"power_mw": 3000, "temp": 600, "flux": 2.0, "rods": 50, "reactivity": 0.015, "period": 0.5, "health": 90.0, "radiation_released": 1.0},
-                "analysis": "Prompt Criticality reached. Fuel pellets shatter."
-            },
-            {
-                "time": 110,
+                "time": 48,
                 "label": "Explosion",
-                "desc": "Steam explosion destroys the reactor vessel. Graphite fire begins. Manual controls jammed. Containment non-existent.",
-                "telemetry": {"power_mw": 30000, "temp": 3000, "flux": 0.0, "rods": 100, "reactivity": 0.0, "period": 0, "radiation_released": 500.0, "melted": True, "health": 0.0},
-                "analysis": "CATASTROPHIC DESIGN FAILURE. The positive scram effect coupled with low ORAM (Operational Reactivity Margin) left the operators powerless."
+                "desc": "01:23:45 - Power peaks at over 30,000 MW. Fuel shatters, causing a massive steam explosion.",
+                "telemetry": {"power_mw": 33000, "temp": 3500, "pressure": 300, "flux": 50.0, "rods": 100, "health": 0.0, "radiation_released": 500.0, "melted": True},
+                "analysis": "The reactor is destroyed. Steam explosion followed by a nuclear-grade graphite fire."
             }
         ]
     ),
@@ -60,78 +60,93 @@ SCENARIOS = {
         description="A partial meltdown caused by a stuck-open relief valve and confusing instrumentation.",
         details=[
             "Reactor Type: PWR (Pressurized Water Reactor)",
-            "Root Cause: stuck Pilot-Operated Relief Valve (PORV)",
-            "Outcome: Partial alignment meltdown, minimal release"
+            "Root Cause: Stuck Pilot-Operated Relief Valve (PORV)",
+            "Outcome: Partial core meltdown, containment preserved"
         ],
         phases=[
             {
                 "time": 0,
-                "label": "Trip",
-                "desc": "Feedwater pumps fail. Turbine trips. Reactor SCRAMs automatically.",
-                "telemetry": {"power_mw": 0, "temp": 300, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999, "health": 100.0, "radiation_released": 0.0, "pressure": 155.0},
-                "analysis": "Safety systems worked as designed initially."
+                "label": "Primary Trip",
+                "desc": "04:00:00 - Main feedwater pumps fail. Turbine trips. Reactor SCRAMs correctly.",
+                "telemetry": {"power_mw": 0, "temp": 300, "pressure": 155, "rods": 100, "health": 100.0, "radiation_released": 0.0},
+                "analysis": "The safety system responded correctly. Decay heat is handled by steam generators."
             },
             {
-                "time": 20,
-                "label": "Valve Error",
-                "desc": "PORV opens to relieve pressure but gets stuck open. Operators think it is closed.",
-                "telemetry": {"power_mw": 0, "temp": 320, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999, "health": 100.0, "radiation_released": 0.0, "pressure": 150.0},
-                "analysis": "Loss of Coolant Accident (LOCA) begins invisibly."
+                "time": 15,
+                "label": "PORV Stuck",
+                "desc": "04:00:03 - Relief valve opens to bleed pressure but fails to close. Pilot light says 'Closed'.",
+                "telemetry": {"power_mw": 0, "temp": 305, "pressure": 140, "rods": 100, "health": 100.0, "radiation_released": 0.0},
+                "analysis": "Operators are unaware that primary coolant is leaking into the containment sump."
             },
             {
-                "time": 60,
-                "label": "Confusion",
-                "desc": "Pressurizer fills with water (relief tank). Operators stop safety injection pumps to prevent 'filling solid'.",
-                "telemetry": {"power_mw": 0, "temp": 450, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999, "health": 80.0, "radiation_released": 0.1, "pressure": 110.0},
-                "analysis": "Critical error: Core is actually boiling dry while operators think it's full."
+                "time": 45,
+                "label": "The Surge",
+                "desc": "04:05:00 - Pressurizer level rises. Operators think system is 'solid' and stop water injection.",
+                "telemetry": {"power_mw": 0, "temp": 350, "pressure": 110, "rods": 100, "health": 90.0, "radiation_released": 0.05},
+                "analysis": "Steam voids in the core are pushing water into the pressurizer, creating a false level reading."
             },
             {
                 "time": 120,
+                "label": "Core Uncovered",
+                "desc": "06:15:00 - Top of the core is exposed to steam. Temperatures skyrocket. Zirc-water reaction starts.",
+                "telemetry": {"power_mw": 0, "temp": 1200, "pressure": 90, "rods": 100, "health": 50.0, "radiation_released": 1.0},
+                "analysis": "Hydrogen gas is being generated as the fuel cladding oxidizes."
+            },
+            {
+                "time": 180,
                 "label": "Meltdown",
-                "desc": "Top of core is uncovered. Zirconium cladding reacts with steam (Hydrogen bubble).",
-                "telemetry": {"power_mw": 0, "temp": 1500, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999, "melted": True, "radiation_released": 1.5, "health": 20.0},
-                "analysis": "Partial core melt confirmed. Hydrogen bubble creates dangerous pressure. Containment integrity preserved but core is severely damaged."
+                "desc": "07:50:00 - Significant core melt. Corium pools at the bottom of the vessel.",
+                "telemetry": {"power_mw": 0, "temp": 2800, "pressure": 80, "rods": 100, "health": 20.0, "radiation_released": 2.0, "melted": True},
+                "analysis": "Half of the core has melted, but the pressure vessel and containment thankfully hold."
             }
         ]
     ),
     "fukushima": HistoricalScenario(
         id="fukushima",
-        title="Fukushima Daiichi (2011)",
+        title="Fukushima Daiichi Unit 1 (2011)",
         description="Station Blackout caused by Tsunami leads to loss of cooling and meltdown.",
         details=[
-            "Reactor Type: BWR (Boiling Water Reactors)",
+            "Reactor Type: BWR (Boiling Water Reactor)",
             "Root Cause: External Event (Tsunami flooding diesel generators)",
-            "Outcome: Hydrogen Explosions, Meltdown of Units 1-3"
+            "Outcome: Hydrogen Explosion, Total Core Melt"
         ],
         phases=[
             {
                 "time": 0,
-                "label": "Earthquake",
-                "desc": "9.0 Earthquake detected. Automatic SCRAM successful.",
-                "telemetry": {"power_mw": 0, "temp": 280, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999, "health": 100.0, "radiation_released": 0.0, "pressure": 70.0},
-                "analysis": "Grid power lost. Diesel generators start."
+                "label": "14:46 Earthquake",
+                "desc": "9.0 Mag Earthquake. Reactor SCRAMs. Diesel generators start to provide cooling power.",
+                "telemetry": {"power_mw": 0, "temp": 280, "pressure": 70, "rods": 100, "health": 100.0, "radiation_released": 0.0},
+                "analysis": "Automatic systems worked perfectly. Isolation Condenser is managing decay heat."
             },
             {
-                "time": 50,
-                "label": "Tsunami",
-                "desc": "14m Tsunami strikes. Seawalls breached. Diesel generators flood and fail.",
-                "telemetry": {"power_mw": 0, "temp": 300, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999, "health": 100.0, "radiation_released": 0.0, "pressure": 70.0},
-                "analysis": "Station Blackout (SBO). Only batteries remain for monitoring."
+                "time": 51,
+                "label": "15:37 Tsunami",
+                "desc": "14m wave hits. Generators flooded. Station Blackout (SBO) declared. All cooling lost.",
+                "telemetry": {"power_mw": 0, "temp": 300, "pressure": 72, "rods": 100, "health": 100.0, "radiation_released": 0.0},
+                "analysis": "The IC (Isolation Condenser) valves closed due to power loss. Cooling has stopped."
             },
             {
                 "time": 150,
                 "label": "Boil Off",
-                "desc": "Isolation Condensers fail/stop. Water boils off. Core uncovered.",
-                "telemetry": {"power_mw": 0, "temp": 800, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999, "health": 70.0, "radiation_released": 5.0, "pressure": 85.0},
-                "analysis": "Decay heat raising temp unchecked."
+                "desc": "Water level falls below the fuel. Steam pressure rises. Temperatures hit 1000C.",
+                "telemetry": {"power_mw": 0, "temp": 1000, "pressure": 85, "rods": 100, "health": 60.0, "radiation_released": 10.0},
+                "analysis": "Unveiling fuel causes rapid heating. Zirconium reaction creates hydrogen gas."
             },
-             {
-                "time": 200,
-                "label": "Hydrogen",
-                "desc": "Zirconium-Steam reaction generates Hydrogen. Venting fails. Containment breached.",
-                "telemetry": {"power_mw": 0, "temp": 2850, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999, "melted": True, "radiation_released": 250.0, "containment_integrity": 0.0, "health": 0.0},
-                "analysis": "Total Station Blackout led to irreversible core dryout and subsequent hydrogen explosion. Major radiological release."
+            {
+                "time": 240,
+                "label": "Hydrogen Melt",
+                "desc": "Venting attempted. Hydrogen escapes into the reactor building. Core begins to melt into vessel.",
+                "telemetry": {"power_mw": 0, "temp": 2850, "pressure": 75, "rods": 100, "health": 10.0, "radiation_released": 150.0, "melted": True},
+                "analysis": "Complete station blackout left the operators blind and powerless. Total core melt."
+            },
+            {
+                "time": 300,
+                "label": "Explosion",
+                "desc": "Hydrogen explosion destroys the secondary building. Massive radiological release.",
+                "telemetry": {"power_mw": 0, "temp": 3000, "pressure": 50, "rods": 100, "health": 0.0, "radiation_released": 500.0, "melted": True, "containment_integrity": 0.0},
+                "analysis": "Secondary containment is gone. Environmental impact is maximized."
             }
         ]
     )
 }
+
