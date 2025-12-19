@@ -68,24 +68,35 @@ class ReactorUnit:
             "manual_scram": False,
             "safety_enabled": True,
             # Type specific
-            "pressure": 150.0 if r_type == ReactorType.PWR else 70.0,
+            # PWR
+            "boron_concentration": 1000.0 if r_type == ReactorType.PWR else 0.0, # ppm
+            "pressurizer_heaters": False, # On/Off
+            "pressurizer_sprays": False,
+            # BWR/RBMK
+            "feedwater_flow": 100.0, # % Match steam flow to maintain level
+            "turbine_bypass": 0.0, # % Steam dump
         }
         
         self.telemetry = {
             "flux": 0.001,
             "power_mw": 0.0,
             "temp": 300.0,
+            "pressure": 155.0 if r_type == ReactorType.PWR else 70.0, # Bar
             "reactivity": 0.0,
             "period": 999.0,
             "alerts": [],
             "scram": False,
             "stability_margin": 100.0,
             "health": 100.0,
-            "xenon": 1.0,  # 1.0 = Equilibrium
+            "xenon": 1.0,  
             "iodine": 1.0,
-            "void_fraction": 0.0, # Steam bubbles (0.0 - 1.0)
+            "void_fraction": 0.0, 
+            # Advanced Telemetry
+            "water_level": 5.0, # Meters (Nominal)
+            "steam_flow": 0.0,
+            "boron_ppm": 1000.0 if r_type == ReactorType.PWR else 0.0,
             # RBMK specific
-            "graphite_tip_position": 0.0, # 0 = outside core
+            "graphite_tip_position": 0.0, 
         }
         
         self.history = []
@@ -98,11 +109,49 @@ class ReactorUnit:
         conf = self.config
         
         # --- 0. Control Response & Mechanics ---
-        # Flow Logic
+        # Flow Logic & Water Inventory
+        # Mass Balance: dM/dt = Feedwater - SteamFlow
+        # Level approx M
+        
+        steam_production = t["power_mw"] / 20.0 # Arbitrary units
+        t["steam_flow"] = steam_production
+        
+        feedwater_in = c["feedwater_flow"] / 100.0 * 160.0 # Scale to match max steam
+        
+        if self.type != ReactorType.PWR: # PWR usually has closed secondary, but let's simplify
+             # Open loop for BWR/RBMK
+             level_change = (feedwater_in - steam_production) * 0.01 * dt
+             t["water_level"] = max(0.0, t["water_level"] + level_change)
+             
+             # Low level trip
+             if t["water_level"] < 2.0: # Core uncovering
+                 t["health"] -= 1.0 * dt
+                 self.safety.alerts.append("LOW WATER LEVEL")
+        
         target_flow = c["pump_speed"] * conf.cooling_penalty
         # Flow inertia
         c["flow_rate_core"] += (target_flow - c["flow_rate_core"]) * 0.1 * dt
         
+        # PWR Pressure Logic
+        if self.type == ReactorType.PWR:
+            # P changes with Temp (expansion) + Heaters/Sprays
+            # Ideal Gas-ish: P ~ T
+            p_target = (t["temp"] / 300.0) * 150.0
+            
+            if c["pressurizer_heaters"]: p_target += 20.0
+            if c["pressurizer_sprays"]: p_target -= 20.0
+            
+            # Inertia
+            t["pressure"] += (p_target - t["pressure"]) * 0.1 * dt
+            
+        # Boron Logic (PWR)
+        boron_reactivity = 0.0
+        if self.type == ReactorType.PWR:
+            # Mixing lag
+            t["boron_ppm"] += (c["boron_concentration"] - t["boron_ppm"]) * 0.05 * dt
+            # Worth: -10 pcm per ppm? Let's say -0.01 reactivity per 1000 ppm
+            boron_reactivity = -(t["boron_ppm"] / 20000.0)
+            
         # --- 1. Safety Check (Scram Override) ---
         self.safety.interlocks_active = c["safety_enabled"]
         is_scrammed = self.safety.check(t["flux"], t["temp"], c["flow_rate_core"], c["manual_scram"])
@@ -159,7 +208,7 @@ class ReactorUnit:
         # Total External Reactivity Addition
         disturbances = conf.disturbance_flux
         
-        total_feedback = feedback_void + feedback_doppler + feedback_xenon + tip_reactivity + disturbances
+        total_feedback = feedback_void + feedback_doppler + feedback_xenon + tip_reactivity + disturbances + boron_reactivity
         
         # Physics update
         # Pass total_feedback as extra_k

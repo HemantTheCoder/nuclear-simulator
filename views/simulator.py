@@ -16,7 +16,9 @@ def render_annunciator_panel(telemetry):
         "CORE INTG": telemetry.get("health", 100) < 80,
         "RAD WARN": telemetry.get("flux", 0) > 0.8,
         "PUMP TRIP": telemetry.get("flow_rate", 100) < 50,
-        "VOID ALRM": telemetry.get("void_fraction", 0) > 0.4
+        "VOID ALRM": telemetry.get("void_fraction", 0) > 0.4,
+        "LOW H2O": telemetry.get("water_level", 5) < 3.0,
+        "HI PRESS": telemetry.get("pressure", 0) > 170
     }
     
     st.markdown("""
@@ -133,10 +135,11 @@ def show(navigate_func):
         st.markdown(f'<div style="text-align:center"><img src="data:image/svg+xml;base64,{b64_svg}" style="width:100%; max-height:400px;"></div>', unsafe_allow_html=True)
 
         # Telemetry Ribbon
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Thermal Power", f"{telemetry['power_mw']:.0f} MW", f"{telemetry['flux']*100:.1f}%")
-        m2.metric("Core Temp", f"{telemetry['temp']:.0f} °C", f"{(telemetry['temp']-300):.0f}")
-        m3.metric("Structure", f"{telemetry['health']:.1f}%", delta_color="off")
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Pwr", f"{telemetry['power_mw']:.0f} MW")
+        m2.metric("Temp", f"{telemetry['temp']:.0f} °C")
+        m3.metric("Press", f"{telemetry.get('pressure',0):.1f} Bar")
+        m4.metric("Lvl", f"{telemetry.get('water_level',5):.1f} m")
 
     with col_ctrl:
         st.markdown(f"### 🎛 {r_type} CONTROL DESK")
@@ -166,14 +169,36 @@ def show(navigate_func):
             new_controls["pump_speed"] = st.slider("Main Pump Speed (%)", 0.0, 100.0, controls["pump_speed"], key="pump_slider")
             
             # 3. Type Specific
+            st.markdown("**SYSTEM CONFIG**")
+            
             if r_type == "PWR":
-                st.info("ℹ️ Maintain pressure to prevent boiling.")
+                st.info("ℹ️ CHEMICAL SHIM & PRESSURE")
+                # Boron
+                new_controls["boron_concentration"] = st.slider("Boron (ppm)", 0.0, 2000.0, controls.get("boron_concentration", 1000.0), 10.0)
+                
+                # Pressurizer
+                c_p1, c_p2 = st.columns(2)
+                new_controls["pressurizer_heaters"] = c_p1.toggle("Heaters", controls.get("pressurizer_heaters", False))
+                new_controls["pressurizer_sprays"] = c_p2.toggle("Sprays", controls.get("pressurizer_sprays", False))
+                
             elif r_type == "BWR":
-                st.info("ℹ️ Boiling is nominal. Monitor void fraction.")
+                st.info("ℹ️ WATER LEVEL & BYPASS")
                 st.metric("Steam Voids", f"{telemetry.get('void_fraction',0)*100:.1f}%")
+                
+                # Feedwater
+                new_controls["feedwater_flow"] = st.slider("Feedwater Flow (%)", 0.0, 150.0, controls.get("feedwater_flow", 100.0))
+                
+                # Bypass
+                new_controls["turbine_bypass"] = st.slider("Turbine Bypass (%)", 0.0, 100.0, controls.get("turbine_bypass", 0.0))
+                
             elif r_type == "RBMK":
-                st.warning("⚠️ POSITIVE VOID COEFFICIENT. Avoid low power operation.")
-                st.metric("Xenon Poison", f"{telemetry.get('xenon',1.0):.2f}")
+                st.warning("⚠️ DRUM SEPARATORS")
+                col_d1, col_d2 = st.columns(2)
+                col_d1.metric("Drum Level", f"{telemetry.get('water_level',5):.2f}m")
+                col_d2.metric("Xenon", f"{telemetry.get('xenon',1.0):.2f}")
+                
+                 # Feedwater
+                new_controls["feedwater_flow"] = st.slider("Feedwater (Drum Fill)", 0.0, 150.0, controls.get("feedwater_flow", 100.0))
 
             # Interlocks
             new_controls["safety_enabled"] = st.checkbox("Safety Interlocks Enabled", value=controls["safety_enabled"])
