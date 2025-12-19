@@ -172,8 +172,8 @@ def show(navigate_func):
                 for e in report["timeline"]:
                     st.markdown(f"`T+{e['time']:.1f}s` : {e['event']}")
         
-        if st.button("RESET SIMULATION"):
-             st.session_state.engine = ReactorEngine() # Hard reset
+        if st.button(f"RESET {unit.name} (COLD SHUTDOWN)"):
+             unit.reset()
              st.rerun()
         
         return # STOP RENDERING CONTROLS
@@ -264,6 +264,11 @@ def show(navigate_func):
             
             if new_controls["manual_vent"]:
                  st.error("⚠️ VENTING TO ATMOSPHERE")
+            
+            st.markdown("---")
+            if st.button("🔄 RESET UNIT TO INITIAL STATE"):
+                unit.reset()
+                st.rerun()
 
             if new_controls != controls:
                 engine.update_controls(selected_id, new_controls)

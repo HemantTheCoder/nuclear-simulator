@@ -115,6 +115,63 @@ class ReactorUnit:
         self.post_mortem_report = None
         
         self.time_seconds = 0
+    
+    def reset(self):
+        """Restores the reactor to a safe, cold shutdown state."""
+        r_type = self.type
+        self.control_state = {
+            "rods_pos": 100.0, # Full Insert
+            "pump_speed": 100.0,
+            "flow_rate_core": 100.0,
+            "manual_scram": False,
+            "safety_enabled": True,
+            # Type specific
+            # PWR
+            "boron_concentration": 1000.0 if r_type == ReactorType.PWR else 0.0,
+            "pressurizer_heaters": False,
+            "pressurizer_sprays": False,
+            # BWR/RBMK
+            "feedwater_flow": 100.0,
+            "turbine_bypass": 0.0,
+            # Emergency
+            "manual_vent": False, 
+            "eccs_active": False,
+        }
+        
+        self.telemetry = {
+            "flux": 0.001,
+            "power_mw": 0.0,
+            "temp": 300.0,
+            "pressure": 155.0 if r_type == ReactorType.PWR else 70.0, 
+            "reactivity": 0.0,
+            "period": 999.0,
+            "alerts": [],
+            "scram": False,
+            "stability_margin": 100.0,
+            "health": 100.0,
+            "xenon": 0.1,  # Fresh core
+            "iodine": 0.1,
+            "void_fraction": 0.0, 
+            # Advanced Telemetry
+            "water_level": 5.0,
+            "steam_flow": 0.0,
+            "boron_ppm": 1000.0 if r_type == ReactorType.PWR else 0.0,
+            # RBMK specific
+            "graphite_tip_position": 0.0, 
+            # Catastrophic State
+            "melted": False,
+            "containment_integrity": 100.0,
+            "radiation_released": 0.0,
+        }
+        
+        self.event_log = []
+        self.failure_cause = None
+        self.post_mortem_report = None
+        self.safety.alerts = []
+        self.history = []
+        
+        # Reset physics layers if needed (simplified)
+        self.physics.xenon_poisoning = 0.0
 
     def log_event(self, message):
         """Logs a critical event if it hasn't just happened."""
