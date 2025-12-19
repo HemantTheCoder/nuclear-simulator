@@ -5,6 +5,7 @@ import time
 from logic.engine import ReactorEngine, ReactorType
 from logic.visuals import VisualGenerator
 from views import god_mode
+from views.components.audio import render_audio_engine
 
 def render_annunciator_panel(telemetry):
     """Renders a grid of alarm lights."""
@@ -106,7 +107,29 @@ def show(navigate_func):
         auto_run = st.toggle("AUTO RUN (1x)", value=st.session_state.get("auto_run", False), key="auto_run_toggle")
         if st.button("STEP (+1s)"):
             engine.tick(1.0)
+            engine.tick(1.0)
             st.rerun()
+
+    # --- AUDIO & SETTINGS ---
+    with st.sidebar:
+        st.markdown("### ⚙️ SETTINGS")
+        sound_enabled = st.checkbox("🔊 Enable Sound Effects", value=True)
+        
+        st.markdown("---")
+        with st.expander("📖 OPERATOR MANUAL"):
+            st.markdown("""
+            **SYSTEM REFERENCE**
+            
+            **REACTOR TYPES**
+            - **PWR**: Stable. Monitor **Pressurizer**. Use **Heaters** to raise pressure, **Sprays** to lower it. Use **Boron** for long-term power changes.
+            - **BWR**: Boiling is normal. Control **Feedwater** to keep level stable. Open **Turbine Bypass** if pressure spikes.
+            - **RBMK**: Unstable at low power ("Positive Void Coefficient"). Keep **Drum Level** high. **Avoid sudden control rod insertion** (Tip Effect).
+            
+            **SAFETY**
+            - **SCRAM**: Emergency Shutdown.
+            - **ECCS**: Emergency Cooling. Saves fuel, shocks vessel.
+            - **VENT**: Releases pressure & radiation.
+            """)
 
     if flight_mode == "God Mode 👁️":
         god_mode.show()
@@ -126,6 +149,18 @@ def show(navigate_func):
     with col_vis:
         st.markdown("### CORE STATUS")
         render_annunciator_panel(telemetry)
+        
+        # Audio Engine
+        render_audio_engine(telemetry, sound_enabled)
+        
+        # Live Event Log
+        with st.container(border=True):
+            st.markdown("**📜 LIVE EVENT LOG**")
+            events = unit.event_log[-5:] # Show last 5
+            for e in reversed(events):
+                st.markdown(f"`T+{e['time']:.0f}s`: {e['event']}")
+            if not events:
+                st.caption("No recent events.")
         
         # SVG Visual
         svg = VisualGenerator.get_reactor_svg({
