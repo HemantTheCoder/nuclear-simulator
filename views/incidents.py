@@ -6,6 +6,9 @@ from logic.scenarios.historical import SCENARIOS
 from logic.engine import ReactorUnit, ReactorType
 from services.reporting import ReportGenerator
 from logic.visuals import VisualGenerator
+from views.components.audio import render_audio_engine
+from views.components.ui import render_annunciator_panel, render_event_log
+import base64
 
 def show_live_reconstruction(scenario, navigate_func):
     """Real-time synced reconstruction UI."""
@@ -28,28 +31,35 @@ def show_live_reconstruction(scenario, navigate_func):
 
     unit = st.session_state.replay_unit
     
-    # --- CONTROLS ---
-    c1, c2, c3, c4 = st.columns([1,1,1,2])
-    if c1.button("▶ PLAY" if not st.session_state.replay_running else "⏸ PAUSE"):
-        st.session_state.replay_running = not st.session_state.replay_running
+    with st.sidebar:
+        st.markdown("### 📽️ REPLAY CONTROLS")
+        st.info(f"Scenario: {scenario.title}")
         
-    if c2.button("🔄 RESTART"):
-        unit.time_seconds = 0
-        unit.event_log = []
-        st.rerun()
+        # --- CONTROLS ---
+        if st.button("▶ PLAY" if not st.session_state.replay_running else "⏸ PAUSE", use_container_width=True):
+            st.session_state.replay_running = not st.session_state.replay_running
+            
+        if st.button("🔄 RESTART", use_container_width=True):
+            unit.time_seconds = 0
+            unit.event_log = []
+            st.rerun()
 
-    if c3.button("🛑 STOP"):
-        st.session_state.selected_incident = None
-        st.session_state.replay_unit = None
-        st.rerun()
+        if st.button("🛑 STOP REPLAY", use_container_width=True):
+            st.session_state.selected_incident = None
+            st.session_state.replay_unit = None
+            st.rerun()
 
-    if c4.button("⚡ TAKE CONTROL (DIVERGENT HISTORY)", type="primary"):
-        # Hand over this unit to the main simulator
-        unit.is_replay = False
-        st.session_state.engine.units["A"] = unit
-        st.session_state.active_unit_id = "A"
-        navigate_func("simulator")
-        st.rerun()
+        st.markdown("---")
+        if st.button("⚡ TAKE CONTROL", type="primary", use_container_width=True):
+            # Hand over this unit to the main simulator
+            unit.is_replay = False
+            st.session_state.engine.units["A"] = unit
+            st.session_state.active_unit_id = "A"
+            navigate_func("simulator")
+            st.rerun()
+            
+        st.markdown("---")
+        sound_enabled = st.checkbox("🔊 Enable Replay Audio", value=True)
 
     # --- SIMULATION LOOP ---
     if st.session_state.replay_running:
@@ -57,41 +67,70 @@ def show_live_reconstruction(scenario, navigate_func):
         time.sleep(0.1) # Smoothish
         st.rerun()
 
-    # --- DASHBOARD ---
-    col_vis, col_data = st.columns([1, 1])
+    # --- DASHBOARD (MIRROR SIMULATOR STYLE) ---
+    col_vis, col_data = st.columns([1.5, 1.2])
     
     with col_vis:
-        st.markdown("### 📽️ REACTOR STATUS")
-        st.write(VisualGenerator.get_reactor_svg(unit.telemetry, unit.type), unsafe_allow_html=True)
+        st.markdown(f"### 🎞️ RECONSTRUCTION: {scenario.title}")
         
-        # Historical Phase Indicator
+        # Annunciator
+        render_annunciator_panel(unit.telemetry)
+        
+        # Audio
+        render_audio_engine(unit.telemetry, sound_enabled)
+        
+        # Historical Phase Indicator (Theatric)
         curr_phase = scenario.phases[0]
         for p in scenario.phases:
             if p['time'] <= unit.time_seconds:
                 curr_phase = p
         
-        st.warning(f"**HISTORICAL CONTEXT:** {curr_phase['label']} (T+{curr_phase['time']}s)")
-        st.info(curr_phase['desc'])
+        st.markdown(f"""
+        <div style="background: rgba(255, 165, 0, 0.1); border-left: 5px solid #ffa500; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+            <h4 style="margin:0; color: #ffa500;">🕵️ HISTORICAL CONTEXT: {curr_phase['label']}</h4>
+            <p style="margin: 5px 0; font-size: 0.95em;">{curr_phase['desc']}</p>
+            <small style="color: #888;">Timestamp: T+{curr_phase['time']}s | Analysis: {curr_phase.get('analysis', 'Forensic data pending')}</small>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # SVG Visual
+        r_type_str = unit.type.name if hasattr(unit.type, 'name') else str(unit.type).split('.')[-1]
+        svg = VisualGenerator.get_reactor_svg({
+            "type": r_type_str,
+            "temp": unit.telemetry["temp"],
+            "flux": unit.telemetry.get("flux", 0.5),
+            "rods_pos": unit.telemetry.get("rods", 50),
+            "void_fraction": unit.telemetry.get("void_fraction", 0.0),
+            "scram": unit.telemetry.get("scram", False),
+            "melted": unit.telemetry.get("melted", False)
+        })
+        b64_svg = base64.b64encode(svg.encode('utf-8')).decode("utf-8")
+        st.markdown(f'<div style="text-align:center"><img src="data:image/svg+xml;base64,{b64_svg}" style="width:100%; max-height:400px;"></div>', unsafe_allow_html=True)
 
     with col_data:
         st.markdown(f"### 📊 TELEMETRY (T+{unit.time_seconds:.1f}s)")
-        m1, m2, m3 = st.columns(3)
+        
+        # Logic Event Log
+        render_event_log(unit.event_log, title="RECONSTRUCTION LOG")
+        
+        # Metrics
+        m1, m2 = st.columns(2)
         m1.metric("Power", f"{unit.telemetry['power_mw']:.1f} MW")
         m2.metric("Temp", f"{unit.telemetry['temp']:.1f} °C")
-        m3.metric("Health", f"{unit.telemetry['health']:.1f}%")
         
-        # Events
-        st.markdown("### 📜 SEQUENCE")
-        for e in reversed(unit.event_log[-5:]):
-            st.caption(f"[{e['time']:.1f}s] {e['event']}")
+        m3, m4 = st.columns(2)
+        m3.metric("Pressure", f"{unit.telemetry.get('pressure', 0):.1f} Bar")
+        m4.metric("Health", f"{unit.telemetry['health']:.1f}%")
+        
+        # Graphs
+        if unit.history:
+            st.markdown("---")
+            df = pd.DataFrame(unit.history)
+            fig = px.line(df, x="time_seconds", y=["power_mw", "temp"], title="Parameter Trends")
+            fig.update_layout(template="plotly_dark", height=250, margin=dict(l=10, r=10, t=30, b=10))
+            st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
-    # Graphs
-    if unit.history:
-        df = pd.DataFrame(unit.history)
-        fig = px.line(df, x="time_seconds", y=["power_mw", "temp"], title="Real-time Reconstruction Data")
-        fig.update_layout(template="plotly_dark", height=300)
-        st.plotly_chart(fig, use_container_width=True)
 
 def show_reconstruction(scenario, navigate_func):
     """Deep-dive static UI (Legacy/Forensic view)."""
