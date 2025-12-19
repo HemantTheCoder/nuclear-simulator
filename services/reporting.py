@@ -94,7 +94,10 @@ class ReportGenerator:
                 pdf.cell(0, 10, f"(Graph generation skipped: {str(e)})", ln=1)
 
         # Output to buffer (Return bytes)
-        return pdf.output(dest='S').encode('latin-1')
+        pdf_bytes = pdf.output(dest='S')
+        if isinstance(pdf_bytes, (bytes, bytearray)):
+            return bytes(pdf_bytes)
+        return pdf_bytes.encode('latin-1')
 
     @staticmethod
     def _create_trend_image(df):
