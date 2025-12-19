@@ -548,15 +548,19 @@ class ReactorUnit:
 
 class ReactorEngine:
     def __init__(self):
+        self.reinitialize_fleet()
+        self.global_time = 0
+        self.active_scenario = None
+        self.scenario_time = 0.0
+        self.current_phase = None
+        
+    def reinitialize_fleet(self):
+        """Restores the standard training units (A=PWR, B=BWR, C=RBMK)."""
         self.units = {
             "A": ReactorUnit("A", "UNIT-1 (PWR)", ReactorType.PWR),
             "B": ReactorUnit("B", "UNIT-2 (BWR)", ReactorType.BWR),
             "C": ReactorUnit("C", "UNIT-3 (RBMK)", ReactorType.RBMK)
         }
-        self.global_time = 0
-        self.active_scenario = None
-        self.scenario_time = 0.0
-        self.current_phase = None
         
     def load_scenario(self, scenario_id):
         if scenario_id in SCENARIOS:

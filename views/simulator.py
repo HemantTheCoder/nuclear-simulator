@@ -43,10 +43,15 @@ def show(navigate_func):
             status_color = "🟢" if telemetry['temp'] < 600 else "🔴"
             if telemetry['scram']: status_color = "⚫"
             
-            label = f"{status_color} {data['name']} [{r_type}]"
+            label = f"{status_color} {data['name']}"
             if st.button(label, key=f"sel_{u_id}", use_container_width=True, type="primary" if is_selected else "secondary"):
                 st.session_state.selected_container = u_id
                 st.rerun()
+
+    if st.button("🔄 RESTORE ORIGINAL TRAINING FLEET", use_container_width=True):
+        engine.reinitialize_fleet()
+        st.session_state.selected_container = "A"
+        st.rerun()
 
     st.markdown("---")
     

@@ -28,6 +28,9 @@ if 'engine' not in st.session_state:
 # Navigation Logic
 def navigate_to(page):
     st.session_state.page = page
+    # Clear temporary reconstruction modes when navigating away from Incidents/Archives
+    if page != 'incidents':
+        st.session_state.mode = None
     st.rerun()
 
 # Module Imports
