@@ -65,7 +65,7 @@ def show_live_reconstruction(scenario, navigate_func):
             # Hand over this unit to the main simulator
             unit.is_replay = False
             st.session_state.engine.units["A"] = unit
-            st.session_state.active_unit_id = "A"
+            st.session_state.selected_container = "A"
             navigate_func("simulator")
             st.rerun()
             

@@ -12,9 +12,13 @@ from services.reporting import ReportGenerator
 # Removed render_annunciator_panel (moved to views.components.ui)
 
 def show(navigate_func):
-    # --- 1. Init Reactor Engine ---
-    if 'engine' not in st.session_state or not isinstance(st.session_state.engine, ReactorEngine):
+    # --- 1. Init Reactor Engine (Handled globally in app.py) ---
+    engine = st.session_state.get('engine')
+    if not engine:
         st.session_state.engine = ReactorEngine()
+        engine = st.session_state.engine
+        
+    if 'selected_container' not in st.session_state:
         st.session_state.selected_container = "A"
     
     engine = st.session_state.engine

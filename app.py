@@ -1,5 +1,6 @@
 import streamlit as st
 import importlib
+from logic.engine import ReactorEngine
 
 # Page Config
 st.set_page_config(
@@ -19,6 +20,10 @@ local_css("assets/style.css")
 # Session State Initialization
 if 'page' not in st.session_state:
     st.session_state.page = 'landing'
+
+if 'engine' not in st.session_state:
+    st.session_state.engine = ReactorEngine()
+    st.session_state.active_unit_id = "A" # Default for take-control
 
 # Navigation Logic
 def navigate_to(page):
