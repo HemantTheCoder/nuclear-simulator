@@ -5,7 +5,8 @@ def show(navigate_func):
     st.markdown("""
     <style>
     .nuclear-title { font-size: 4em; font-weight: 900; background: -webkit-linear-gradient(#ffcc00, #ff6600); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0px; text-transform: uppercase; letter-spacing: -1px; line-height: 1; }
-    .nuclear-subtitle { font-size: 1.1em; color: #888; font-family: 'Inter', sans-serif; margin-bottom: 40px; letter-spacing: 2px; }
+    .nuclear-subtitle { font-size: 1.1em; color: #888; font-family: 'Inter', sans-serif; margin-bottom: 10px; letter-spacing: 2px; }
+    .author-sub { font-size: 1.4em; color: #ffcc00; font-family: 'Inter', sans-serif; margin-bottom: 40px; font-weight: 500; }
     
     .feature-card {
         background: rgba(255, 255, 255, 0.03);
@@ -42,6 +43,7 @@ def show(navigate_func):
     with c_hero_1:
         st.markdown("<div class='nuclear-title'>ATOMCORE<br>CONTROL</div>", unsafe_allow_html=True)
         st.markdown("<div class='nuclear-subtitle'>NEXT-GEN REACTOR PHYSICS & FORENSICS</div>", unsafe_allow_html=True)
+        st.markdown("<div class='author-sub'>By Hemant Kumar & Jaidev Joya</div>", unsafe_allow_html=True)
         
         st.markdown("""
         Experience the world's most detailed in-browser nuclear reactor simulator. 
