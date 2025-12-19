@@ -48,11 +48,17 @@ class ReportGenerator:
         
         for event in unit.event_log:
             time_str = f"T+{event['time']:.1f}s"
-            msg = str(event['event']).encode('latin-1', 'ignore').decode('latin-1') # Sanitize
+            msg = str(event['event']).encode('latin-1', 'ignore').decode('latin-1')
+            
+            # Use X position for the message to avoid multi_cell width calculation issues
+            curr_y = pdf.get_y()
             pdf.cell(25, 6, time_str, border=0)
+            pdf.set_x(35) # Move to fixed X for the message
             pdf.multi_cell(0, 6, msg)
             
-        pdf.ln(10)
+            # Ensure next line starts after the multi_cell block
+            if pdf.get_y() <= curr_y: 
+                pdf.ln(6)
         
         # --- ANALYSIS (From Post-Mortem) ---
         if unit.post_mortem_report:
