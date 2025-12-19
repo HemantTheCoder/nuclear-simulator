@@ -49,6 +49,15 @@ with st.sidebar:
     
     st.markdown("---")
     st.caption("Active Session: " + st.session_state.page.upper())
+    
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("""
+        <div style="font-size: 0.8em; color: #666; border-top: 1px solid #333; padding-top: 20px;">
+            Made by <br>
+            <a href="https://www.linkedin.com/in/hemantkumar2430/" target="_blank" style="color: #ffcc00; text-decoration: none;">Hemant Kumar</a> & 
+            <a href="https://www.linkedin.com/in/jaidev-joya-0a5690284/" target="_blank" style="color: #ffcc00; text-decoration: none;">Jaidev Joya</a>
+        </div>
+    """, unsafe_allow_html=True)
 
 # Main Routing
 if st.session_state.page == 'landing':
