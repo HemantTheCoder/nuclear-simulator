@@ -21,35 +21,35 @@ SCENARIOS = {
                 "time": 0,
                 "label": "Preparation",
                 "desc": "Reactor power reduced for safety test. Xenon poisoning begins to accumulate due to rapid power drop.",
-                "telemetry": {"power_mw": 1600, "temp": 280, "flux": 0.5, "rods": 30, "reactivity": -0.001, "period": 999},
+                "telemetry": {"power_mw": 1600, "temp": 280, "flux": 0.5, "rods": 30, "reactivity": -0.001, "period": 999, "health": 100.0, "radiation_released": 0.0},
                 "analysis": "Xenon-135 acts as a neutron absorber. Operators struggle to maintain power."
             },
             {
                 "time": 40,
                 "label": "Instability",
                 "desc": "Power falls too low (30 MW). Operators withdraw nearly all control rods to compensate, violating safety protocols.",
-                "telemetry": {"power_mw": 30, "temp": 250, "flux": 0.05, "rods": 5, "reactivity": 0.000, "period": 60},
+                "telemetry": {"power_mw": 30, "temp": 250, "flux": 0.05, "rods": 5, "reactivity": 0.000, "period": 60, "health": 100.0, "radiation_released": 0.0},
                 "analysis": "Core is now extremely unstable. Positive void coefficient dominates."
             },
             {
                 "time": 80,
                 "label": "Test Start",
                 "desc": "Turbine test begins. Coolant pumps slow down. Water boils to steam -> Void effect increases reactivity.",
-                "telemetry": {"power_mw": 200, "temp": 320, "flux": 0.15, "rods": 5, "reactivity": 0.002, "period": 10},
+                "telemetry": {"power_mw": 200, "temp": 320, "flux": 0.15, "rods": 5, "reactivity": 0.002, "period": 10, "health": 100.0, "radiation_released": 0.0},
                 "analysis": "Building positive feedback loop. Automatic control cannot compensate."
             },
             {
                 "time": 100,
                 "label": "The Surge",
                 "desc": "Power skyrockets. AZ-5 button pressed (SCRAM). Graphite tips of rods displace water, adding MORE reactivity.",
-                "telemetry": {"power_mw": 3000, "temp": 600, "flux": 2.0, "rods": 50, "reactivity": 0.015, "period": 0.5},
+                "telemetry": {"power_mw": 3000, "temp": 600, "flux": 2.0, "rods": 50, "reactivity": 0.015, "period": 0.5, "health": 90.0, "radiation_released": 1.0},
                 "analysis": "Prompt Criticality reached. Fuel pellets shatter."
             },
             {
                 "time": 110,
                 "label": "Explosion",
                 "desc": "Steam explosion destroys the reactor vessel. Graphite fire begins. Manual controls jammed. Containment non-existent.",
-                "telemetry": {"power_mw": 30000, "temp": 3000, "flux": 0.0, "rods": 100, "reactivity": 0.0, "period": 0, "radiation_released": 500.0, "melted": True},
+                "telemetry": {"power_mw": 30000, "temp": 3000, "flux": 0.0, "rods": 100, "reactivity": 0.0, "period": 0, "radiation_released": 500.0, "melted": True, "health": 0.0},
                 "analysis": "CATASTROPHIC DESIGN FAILURE. The positive scram effect coupled with low ORAM (Operational Reactivity Margin) left the operators powerless."
             }
         ]

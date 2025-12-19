@@ -35,9 +35,10 @@ class ReportGenerator:
         pdf.set_text_color(0, 0, 0)
         pdf.cell(0, 10, f"Reactor Unit: {str(unit.name)}", ln=1)
         pdf.set_font("helvetica", "", 12)
-        pdf.cell(0, 8, f"Final Status: {'DESTROYED' if unit.telemetry['health'] <=0 else 'OPERATIONAL'}", ln=1)
-        pdf.cell(0, 8, f"Final Temperature: {unit.telemetry['temp']:.1f} C", ln=1)
-        pdf.cell(0, 8, f"Radiation Released: {unit.telemetry['radiation_released']:.2f} Sv", ln=1)
+        health = unit.telemetry.get('health', 100.0)
+        pdf.cell(0, 8, f"Final Status: {'DESTROYED' if health <=0 else 'OPERATIONAL'}", ln=1)
+        pdf.cell(0, 8, f"Final Temperature: {unit.telemetry.get('temp', 0):.1f} C", ln=1)
+        pdf.cell(0, 8, f"Radiation Released: {unit.telemetry.get('radiation_released', 0):.2f} Sv", ln=1)
         pdf.ln(10)
         
         # --- CHAIN OF EVENTS ---
