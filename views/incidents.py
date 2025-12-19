@@ -11,7 +11,10 @@ from views.components.ui import render_annunciator_panel, render_event_log
 import base64
 
 def show_live_reconstruction(scenario, navigate_func):
-    """Real-time synced reconstruction UI."""
+    if not scenario:
+        st.session_state.mode = None
+        st.rerun()
+        return
     st.markdown(f"## 🎞️ LIVE RECONSTRUCTION: {scenario.title}")
     
     # Initialize Replay State
@@ -54,6 +57,7 @@ def show_live_reconstruction(scenario, navigate_func):
         if st.button("🛑 STOP REPLAY", use_container_width=True):
             st.session_state.selected_incident = None
             st.session_state.replay_unit = None
+            st.session_state.mode = None
             st.rerun()
 
         st.markdown("---")
