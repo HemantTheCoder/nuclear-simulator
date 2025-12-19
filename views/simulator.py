@@ -151,6 +151,34 @@ def show(navigate_func):
         if rads > 0:
             st.metric("☢️ RAD RELEASE", f"{rads:.2f} Sv", delta_color="inverse")
 
+        if rads > 0:
+            st.metric("☢️ RAD RELEASE", f"{rads:.2f} Sv", delta_color="inverse")
+            
+    # CHECK FOR DEATH
+    if telemetry.get("health", 100) <= 0:
+        st.markdown("---")
+        st.error(f"# ☠️ MISSION FAILED: {unit.failure_cause}")
+        
+        report = getattr(unit, "post_mortem_report", None)
+        if report:
+            c1, c2 = st.columns([2, 1])
+            with c1:
+                st.markdown("### 🔬 ACCIDENT ANALYSIS")
+                st.info(report["explanation"])
+                if report["prevention"]:
+                    st.success(f"**PREVENTION:** {report['prevention']}")
+            
+            with c2:
+                st.markdown("### ⏱️ EVENTS")
+                for e in report["timeline"]:
+                    st.markdown(f"`T+{e['time']:.1f}s` : {e['event']}")
+        
+        if st.button("RESET SIMULATION"):
+             st.session_state.engine = ReactorEngine() # Hard reset
+             st.rerun()
+        
+        return # STOP RENDERING CONTROLS
+
     with col_ctrl:
         st.markdown(f"### 🎛 {r_type} CONTROL DESK")
         

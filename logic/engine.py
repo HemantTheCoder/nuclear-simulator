@@ -107,8 +107,21 @@ class ReactorUnit:
             "radiation_released": 0.0, # Sieverts
         }
         
+
+        
         self.history = []
+        self.event_log = [] # List of {"time": t, "event": str}
+        self.failure_cause = None
+        self.post_mortem_report = None
+        
         self.time_seconds = 0
+
+    def log_event(self, message):
+        """Logs a critical event if it hasn't just happened."""
+        # Simple debounce: don't log same msg within 5 seconds
+        if self.event_log and self.event_log[-1]["event"] == message and (self.time_seconds - self.event_log[-1]["time"] < 5.0):
+            return
+        self.event_log.append({"time": self.time_seconds, "event": message})
 
     def tick(self, dt=1.0):
         self.time_seconds += dt
@@ -282,21 +295,82 @@ class ReactorUnit:
              t["health"] -= 1.0 * dt
              
         # Catastrophic Failure Logic
-        if t["temp"] > 2800.0:
+        if t["temp"] > 2800.0 and not t["melted"]:
             t["melted"] = True
             t["health"] = 0.0
-            t["can_recover"] = False
+            self.failure_cause = "Core Meltdown (Fuel Liquefaction)"
+            self.log_event("CORE MELTDOWN TRIGGERED")
+            self.generate_post_mortem()
         
-        if t["pressure"] > 250.0:
+        if t["pressure"] > 250.0 and t["containment_integrity"] > 0:
             t["containment_integrity"] = 0.0
             t["health"] = 0.0
             t["alerts"].append("CONTAINMENT BREACH")
             t["radiation_released"] += 1000.0 * dt
+            self.failure_cause = "Containment Vessel Rupture (Overpressure)"
+            self.log_event("CONTAINMENT BREACHED")
+            self.generate_post_mortem()
+
+        # Precursor Logging
+        if t["temp"] > 2000 and "High Fuel Temp" not in [e["event"] for e in self.event_log[-3:]]:
+            self.log_event("Fuel Temperature Critical (>2000C)")
+        if t["void_fraction"] > 0.8 and self.type == ReactorType.RBMK:
+             self.log_event("Void Fraction Critical (>80%)")
+        if t["xenon"] > 2.0:
+             self.log_event("Xenon Pit Depth Maximum")
 
         self._record_history()
         
         # Decay disturbance
         if conf.disturbance_flux > 0: conf.disturbance_flux *= 0.9
+
+    def generate_post_mortem(self):
+        """Generates an educational report on why the reactor died."""
+        t = self.telemetry
+        c = self.control_state
+        cause = self.failure_cause
+        
+        # 1. Root Cause Analysis
+        explanation = ""
+        tips = ""
+        
+        if self.type == ReactorType.RBMK:
+            if t["void_fraction"] > 0.5 and t["flux"] > 1.5:
+                explanation = "POSITIVE VOID COEFFICIENT DISASTER.\n\n" \
+                              "In an RBMK, steam bubbles (voids) increase reactivity. " \
+                              "As boiling increased, power rose, creating MORE steam, creating MORE power. " \
+                              "This positive feedback loop caused a thermal runaway."
+                tips = "Avoid low power operations where instability is high. Do not let the core boil uncontrollably."
+                
+                if t["graphite_tip_position"] > 0:
+                    explanation += "\n\nCRITICAL DESIGN FLAW: GRAPHITE TIPS.\n" \
+                                   "The SCRAM initially inserted graphite (moderator) tips, which displaced water (absorber). " \
+                                   "This caused the final fatal power spike."
+            else:
+                 explanation = "Loss of Coolant / Dryout.\nFeedwater failure led to core uncovery."
+        
+        elif self.type == ReactorType.PWR:
+            if cause == "Containment Vessel Rupture (Overpressure)":
+                explanation = "HYDRAULIC RUPTURE.\n\n" \
+                              "Water is incompressible. Without a steam bubble in the pressurizer (concave functionality), " \
+                              "thermal expansion spiked the pressure instantly, bursting the vessel."
+                tips = "Maintain the steam bubble in the pressurizer. Watch heating rates."
+            else:
+                explanation = "THERMAL MELTDOWN.\nDecay heat or lack of flow melted the fuel rods."
+                
+        elif self.type == ReactorType.BWR:
+             explanation = "BOILING CRISIS.\nToo much steam blocked water from cooling the rods (Dryout), leading to clad failure."
+        
+        if c["safety_enabled"] == False:
+            explanation += "\n\nNON-COMPLIANCE: SAFETY SYSTEMS DISABLED.\nThe automatic SCRAM meant to prevent this was manually bypassed."
+
+        self.post_mortem_report = {
+            "cause": cause,
+            "explanation": explanation,
+            "prevention": tips,
+            "timeline": self.event_log[-10:] # Last 10 events
+        }
+        
 
     def apply_preset(self, preset_name):
         """Applies a named physics/context configuration."""
