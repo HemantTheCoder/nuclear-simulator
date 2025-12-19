@@ -189,6 +189,11 @@ class ReactorUnit:
         self.safety.alerts = []
         self.history = []
         
+        # Replay State
+        self.replay_scenario = None
+        self.is_replay = False
+        self.replay_speed = 1.0
+        
         # Reset physics layers if needed (simplified)
         self.physics.xenon_poisoning = 0.0
 
@@ -200,6 +205,63 @@ class ReactorUnit:
         self.event_log.append({"time": self.time_seconds, "event": message})
 
     def tick(self, dt=1.0):
+        if self.is_replay and self.replay_scenario:
+            self._tick_replay(dt)
+        else:
+            self._tick_simulation(dt)
+
+    def _tick_replay(self, dt):
+        """Advances the simulation by interpolating historical phases."""
+        self.time_seconds += dt * self.replay_speed
+        phases = self.replay_scenario.phases
+        
+        # Find current and next phase
+        current_phase = phases[0]
+        next_phase = None
+        
+        for p in phases:
+            if p['time'] <= self.time_seconds:
+                current_phase = p
+            else:
+                next_phase = p
+                break
+        
+        if not next_phase:
+            # Reached end of history
+            self.telemetry.update(current_phase['telemetry'])
+            return
+
+        # Interpolation factor
+        total_gap = next_phase['time'] - current_phase['time']
+        if total_gap <= 0:
+             self.telemetry.update(next_phase['telemetry'])
+             return
+             
+        progress = (self.time_seconds - current_phase['time']) / total_gap
+        
+        # Interpolate all numeric keys in telemetry
+        for k, v_next in next_phase['telemetry'].items():
+            if k in current_phase['telemetry']:
+                v_curr = current_phase['telemetry'][k]
+                if isinstance(v_next, (int, float)) and isinstance(v_curr, (int, float)):
+                    self.telemetry[k] = v_curr + (v_next - v_curr) * progress
+                else:
+                    self.telemetry[k] = v_next # Non-numeric (bools, etc)
+            else:
+                self.telemetry[k] = v_next
+        
+        # Ensure health is checked for meltdown visual
+        if self.telemetry.get("health", 100) <= 0:
+            self.telemetry["melted"] = True
+
+        # Log historical events
+        if "label" in current_phase and not any(current_phase["label"] in e["event"] for e in self.event_log[-2:]):
+            self.log_event(f"HISTORICAL: {current_phase['label']}")
+
+        self._record_history()
+
+    def _tick_simulation(self, dt=1.0):
+        """Standard reactor physics tick."""
         self.time_seconds += dt
         c = self.control_state
         t = self.telemetry

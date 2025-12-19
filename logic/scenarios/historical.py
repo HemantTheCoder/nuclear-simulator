@@ -68,21 +68,21 @@ SCENARIOS = {
                 "time": 0,
                 "label": "Trip",
                 "desc": "Feedwater pumps fail. Turbine trips. Reactor SCRAMs automatically.",
-                "telemetry": {"power_mw": 0, "temp": 300, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999},
+                "telemetry": {"power_mw": 0, "temp": 300, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999, "health": 100.0, "radiation_released": 0.0, "pressure": 155.0},
                 "analysis": "Safety systems worked as designed initially."
             },
             {
                 "time": 20,
                 "label": "Valve Error",
                 "desc": "PORV opens to relieve pressure but gets stuck open. Operators think it is closed.",
-                "telemetry": {"power_mw": 0, "temp": 320, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999},
+                "telemetry": {"power_mw": 0, "temp": 320, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999, "health": 100.0, "radiation_released": 0.0, "pressure": 150.0},
                 "analysis": "Loss of Coolant Accident (LOCA) begins invisibly."
             },
             {
                 "time": 60,
                 "label": "Confusion",
                 "desc": "Pressurizer fills with water (relief tank). Operators stop safety injection pumps to prevent 'filling solid'.",
-                "telemetry": {"power_mw": 0, "temp": 450, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999},
+                "telemetry": {"power_mw": 0, "temp": 450, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999, "health": 80.0, "radiation_released": 0.1, "pressure": 110.0},
                 "analysis": "Critical error: Core is actually boiling dry while operators think it's full."
             },
             {
@@ -108,21 +108,21 @@ SCENARIOS = {
                 "time": 0,
                 "label": "Earthquake",
                 "desc": "9.0 Earthquake detected. Automatic SCRAM successful.",
-                "telemetry": {"power_mw": 0, "temp": 280, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999},
+                "telemetry": {"power_mw": 0, "temp": 280, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999, "health": 100.0, "radiation_released": 0.0, "pressure": 70.0},
                 "analysis": "Grid power lost. Diesel generators start."
             },
             {
                 "time": 50,
                 "label": "Tsunami",
                 "desc": "14m Tsunami strikes. Seawalls breached. Diesel generators flood and fail.",
-                "telemetry": {"power_mw": 0, "temp": 300, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999},
+                "telemetry": {"power_mw": 0, "temp": 300, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999, "health": 100.0, "radiation_released": 0.0, "pressure": 70.0},
                 "analysis": "Station Blackout (SBO). Only batteries remain for monitoring."
             },
             {
                 "time": 150,
                 "label": "Boil Off",
                 "desc": "Isolation Condensers fail/stop. Water boils off. Core uncovered.",
-                "telemetry": {"power_mw": 0, "temp": 800, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999},
+                "telemetry": {"power_mw": 0, "temp": 800, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999, "health": 70.0, "radiation_released": 5.0, "pressure": 85.0},
                 "analysis": "Decay heat raising temp unchecked."
             },
              {
