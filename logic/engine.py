@@ -524,6 +524,15 @@ class ReactorUnit:
 
     def set_state_override(self, telemetry_override):
         self.telemetry.update(telemetry_override)
+        
+        # Try to infer control state for better 'Take Control' continuity
+        # e.g. if power is high, rods are probably out
+        if "power_mw" in telemetry_override:
+            # Simple inverse rod logic: Power 3200 -> R0, Power 0 -> R100
+            # (Just a guess to prevent immediate jump on handover)
+            p_ratio = telemetry_override["power_mw"] / 3200.0
+            self.control_state["rods_pos"] = max(0, min(100, 100 - (p_ratio * 100)))
+            
         self._record_history()
 
     def _record_history(self):

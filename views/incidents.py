@@ -64,6 +64,8 @@ def show_live_reconstruction(scenario, navigate_func):
         if st.button("⚡ TAKE CONTROL", type="primary", use_container_width=True):
             # Hand over this unit to the main simulator
             unit.is_replay = False
+            # Break the engine's global scenario bond so it doesn't try to override Unit A
+            st.session_state.engine.active_scenario = None 
             st.session_state.engine.units["A"] = unit
             st.session_state.selected_container = "A"
             navigate_func("simulator")
