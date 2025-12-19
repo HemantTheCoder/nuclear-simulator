@@ -8,7 +8,7 @@ class ReactivityLayer:
         # Initial State
         self.control_rod_insertion = 50.0 # % (0 = Out, 100 = In)
         
-    def update(self, rods_pos, temp, dt=1.0):
+    def update(self, rods_pos, temp, extra_k=0.0, dt=1.0):
         """
         Updates neutron flux based on reactivity sources.
         dt in seconds (simulated)
@@ -33,7 +33,7 @@ class ReactivityLayer:
             self.xenon_poisoning *= 0.999 # Decay
             
         # Total Reactivity
-        self.reactivity = rho_rods + rho_temp - self.xenon_poisoning
+        self.reactivity = rho_rods + rho_temp - self.xenon_poisoning + extra_k
         
         # Point Kinetics (Simplified)
         # dN/dt = (rho - beta)/L * N ... ignoring delayed for now for simpler UX

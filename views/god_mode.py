@@ -67,6 +67,7 @@ def show():
         st.markdown("<div style='text-align:center'><b>TRUTH MIRROR</b></div>", unsafe_allow_html=True)
         # Visual Core
         svg = VisualGenerator.get_reactor_svg({
+            "type": data.get("type", "PWR"),
             "temp": telemetry["temp"],
             "flux": telemetry["flux"],
             "rods": data['controls']["rods_pos"],

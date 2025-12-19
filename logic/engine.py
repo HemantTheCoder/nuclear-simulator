@@ -2,29 +2,58 @@ from logic.layers.reactivity import ReactivityLayer
 from logic.layers.thermal import ThermalLayer
 from logic.layers.safety import SafetyLayer
 from logic.scenarios.historical import SCENARIOS
-import copy
+from enum import Enum
+import math
+import random
+
+class ReactorType(Enum):
+    PWR = "PWR"   # Pressurized Water Reactor (Negative Void coeff, Safe)
+    BWR = "BWR"   # Boiling Water Reactor (Negative Void coeff, Steam voids)
+    RBMK = "RBMK" # Channel Type (Positive Void coeff, Graphite Tip effect)
 
 class ReactorConfig:
-    def __init__(self):
-        # Physics Coefficients
-        self.responsiveness = 1.0     # 0.5 (Sluggish) to 2.0 (Twitchy)
-        self.thermal_inertia = 1.0    # 0.2 (Fast Heat) to 5.0 (Slow Heat)
-        self.feedback_strength = 1.0  # 0.0 (Unstable) to 2.0 (Damped)
+    def __init__(self, r_type=ReactorType.PWR):
+        self.type = r_type
         
+        # Base Physics Coefficients
+        self.responsiveness = 1.0     
+        self.thermal_inertia = 1.0    
+        self.feedback_strength = 1.0  
+        
+        # Advanced Physics Quirks
+        if r_type == ReactorType.RBMK:
+            self.void_coefficient = 0.05      # POSITIVE! Bubbles = More Power
+            self.doppler_coefficient = -0.01  # Small negative temp feedback
+            self.xenon_burnout_rate = 1.2     # Fast xenon transients
+            self.scram_insertion_speed = 0.5  # Slow rods (18s to insert)
+            self.scram_tip_effect = True      # Graphite tip causes spike on insertion
+        elif r_type == ReactorType.BWR:
+            self.void_coefficient = -0.05     # Negative (Safety feature)
+            self.doppler_coefficient = -0.03
+            self.xenon_burnout_rate = 1.0
+            self.scram_insertion_speed = 2.0  # Fast hydraulic
+            self.scram_tip_effect = False
+        else: # PWR
+            self.void_coefficient = -0.02     # Negative (Bubble = less mod = less power)
+            self.doppler_coefficient = -0.04  # Strong safety feedback
+            self.xenon_burnout_rate = 1.0
+            self.scram_insertion_speed = 3.0  # Very fast gravity drop
+            self.scram_tip_effect = False
+
         # External Disturbances
-        self.disturbance_flux = 0.0   # Additive reactivity noise
-        self.cooling_penalty = 1.0    # Multiplier (1.0 = Normal, 0.5 = Blockage)
+        self.disturbance_flux = 0.0
+        self.cooling_penalty = 1.0
         
-        # Meta-Physics (God Mode)
-        self.non_linearity = 0.0      # 0.0 (Predictable) -> 1.0 (Chaotic)
-        self.coupling_strength = 1.0  # 1.0 (Tight) -> 0.0 (Decoupled/Laggy)
-        self.safety_bias = 0.5        # 0.0 (Forgiving) -> 1.0 (Strict)
+        # Meta-Physics
+        self.non_linearity = 0.2 if r_type == ReactorType.RBMK else 0.0
+        self.coupling_strength = 0.5 if r_type == ReactorType.RBMK else 1.0
 
 class ReactorUnit:
-    def __init__(self, id, name):
+    def __init__(self, id, name, r_type=ReactorType.PWR):
         self.id = id
         self.name = name
-        self.config = ReactorConfig()
+        self.type = r_type
+        self.config = ReactorConfig(r_type)
         
         # Core Systems
         self.physics = ReactivityLayer()
@@ -33,11 +62,13 @@ class ReactorUnit:
         
         # State
         self.control_state = {
-            "rods_pos": 50.0, # 0-100
-            "pump_speed": 100.0, # 0-100
-            "cooling_eff": 100.0, # 0-100
+            "rods_pos": 50.0, # 0 (Full Out) to 100 (Full In)
+            "pump_speed": 100.0,
+            "flow_rate_core": 100.0, # Actual flow
             "manual_scram": False,
-            "safety_enabled": True
+            "safety_enabled": True,
+            # Type specific
+            "pressure": 150.0 if r_type == ReactorType.PWR else 70.0,
         }
         
         self.telemetry = {
@@ -49,14 +80,12 @@ class ReactorUnit:
             "alerts": [],
             "scram": False,
             "stability_margin": 100.0,
-            "health": 100.0, # Structural Integrity (0-100)
-            "stability_margin": 100.0,
-            "health": 100.0, # Structural Integrity (0-100)
-            "risk_accumulated": 0.0, # Hidden risk metric
-            # Derived Metrics
-            "control_quality": 1.0,
-            "escalation_momentum": 0.0,
-            "irreversibility_score": 0.0
+            "health": 100.0,
+            "xenon": 1.0,  # 1.0 = Equilibrium
+            "iodine": 1.0,
+            "void_fraction": 0.0, # Steam bubbles (0.0 - 1.0)
+            # RBMK specific
+            "graphite_tip_position": 0.0, # 0 = outside core
         }
         
         self.history = []
@@ -65,116 +94,139 @@ class ReactorUnit:
     def tick(self, dt=1.0):
         self.time_seconds += dt
         c = self.control_state
+        t = self.telemetry
+        conf = self.config
         
-        # 1. Safety Check (Scram Override)
+        # --- 0. Control Response & Mechanics ---
+        # Flow Logic
+        target_flow = c["pump_speed"] * conf.cooling_penalty
+        # Flow inertia
+        c["flow_rate_core"] += (target_flow - c["flow_rate_core"]) * 0.1 * dt
+        
+        # --- 1. Safety Check (Scram Override) ---
         self.safety.interlocks_active = c["safety_enabled"]
-        is_scrammed = self.safety.check(
-            self.telemetry["flux"], 
-            self.telemetry["temp"], 
-            c["pump_speed"],
-            c["manual_scram"]
-        )
+        is_scrammed = self.safety.check(t["flux"], t["temp"], c["flow_rate_core"], c["manual_scram"])
         
         if is_scrammed:
-            # Gravity Drop - Rods go in fast
-            c["rods_pos"] = min(100.0, c["rods_pos"] + 10.0 * dt)
-            c["manual_scram"] = False # Reset trigger, latch remains via checks
+            # Rod movement logic
+            # RBMK: Slow insertion + Tip Effect
+            # PWR/BWR: Fast
+            speed = conf.scram_insertion_speed * 10.0 # % per second base
+            c["rods_pos"] = min(100.0, c["rods_pos"] + speed * dt)
+            c["manual_scram"] = False # Latch handles state
             
-        # 2. Physics Update (Config-Aware)
-        # We inject config params into the update call or modify state pre-update
-        # Adjust rod effectiveness by responsiveness
-        eff_rods = c["rods_pos"]
+        # --- 2. Advanced Physics Loop ---
         
-        # Apply Disturbance (Reactivity Spike)
-        if self.config.disturbance_flux > 0:
-            # Temporary flux spike
-            pass 
-
-        # Update Physics with Feedback Strength scaling
-        # (For now, we pass standard, but in V2 logic we'd scale the feedback term)
-        flux = self.physics.update(eff_rods, self.telemetry["temp"], dt)
+        # A. Rod Worth & Tip Effect
+        # Standard rod worth curve is cosine-like (most worth in center)
+        # 100% in = -5.0 delta k, 0% in = +2.0 delta k (just roughly)
+        raw_rod_pos = c["rods_pos"] / 100.0
         
-        # Apply Glitch/Jitter to Flux based on responsiveness
-        flux *= (1.0 + self.config.disturbance_flux)
+        # RBMK Graphite Tip Effect Logic
+        # If rods move IN from 0%, initially they displace water with graphite -> POSITIVE reactivity
+        tip_reactivity = 0.0
+        if conf.scram_tip_effect and is_scrammed:
+        # If rods are moving in the top section (0-30%) - Fixed condition for start of movement
+             if raw_rod_pos < 0.3 and raw_rod_pos >= 0.0:
+                 tip_reactivity = 0.005 # Massive positive spike (+500 pcm)
         
-        # 3. Thermal Update (Config-Aware)
-        # config.cooling_penalty reduces pump effectiveness
-        effective_cooling = c["cooling_eff"] * self.config.cooling_penalty
+        eff_rods = c["rods_pos"] 
         
-        # Thermal Lazy/Inertia is handled by scaling DT effectively for temp changes
-        # High inertia = small dt effect = slow change
-        thermal_dt = dt / self.config.thermal_inertia
+        # B. Reactivity Feedbacks
         
-        temp = self.thermal.update(flux, c["pump_speed"], effective_cooling, thermal_dt)
+        # Void Feedback (Steam)
+        # More power -> More Temp -> More Voids
+        # BWR/RBMK has boiling. PWR has subcooled boiling (rarely voids unless accident)
+        void_fraction = 0.0
+        if t["temp"] > 280: # Boiling onset
+            void_fraction = min(1.0, (t["temp"] - 280) * 0.01) * (t["power_mw"]/3200.0)
         
-        # 4. Telemetry Update
-        # Stability Margin Calculation (Abstract)
-        stability = (1.5 * self.config.feedback_strength) - (abs(self.physics.reactivity) * 100)
-        stability = max(0, min(100, stability * 100))
+        t["void_fraction"] = void_fraction
         
-        self.telemetry.update({
-            "flux": flux,
-            "power_mw": flux * 2000.0,
-            "temp": temp,
-            "reactivity": self.physics.reactivity,
-            "period": self.physics.period,
-            "alerts": self.safety.alerts,
-            "scram": is_scrammed,
-            "stability_margin": stability
-        })
+        feedback_void = void_fraction * conf.void_coefficient
         
+        # Doppler Feedback (Fuel Temp)
+        feedback_doppler = ((t["temp"] - 300) * 0.0001) * conf.doppler_coefficient
+        
+        # Xenon Poisoning (Simplified)
+        # Flux burns Xenon. Low flux = Xenon builds up (transient).
+        # We model 'xenon_poison' as negative reactivity
+        xenon_production = 0.001 # constant decay from Iodine
+        xenon_burnout = t["flux"] * 0.002 * conf.xenon_burnout_rate
+        t["xenon"] = max(0.0, t["xenon"] + (xenon_production - xenon_burnout) * dt)
+        feedback_xenon = (t["xenon"] - 1.0) * -0.01 # Excess xenon = neg reactivity
+        
+        # Total External Reactivity Addition
+        disturbances = conf.disturbance_flux
+        
+        total_feedback = feedback_void + feedback_doppler + feedback_xenon + tip_reactivity + disturbances
+        
+        # Physics update
+        # Pass total_feedback as extra_k
+        current_flux = self.physics.update(eff_rods, t["temp"], extra_k=total_feedback, dt=dt)
+        
+        # Update period from physics layer
+        t["period"] = self.physics.period
+        t["reactivity"] = self.physics.reactivity
+        
+        # Apply visual jitter to flux
+        t["flux"] = max(0, current_flux)
+        
+        # --- 3. Thermal Update ---
+        # Cooling based on Flow
+        cooling_factor = (c["flow_rate_core"] / 100.0) * conf.cooling_penalty
+        
+        # Thermal power generation
+        t["power_mw"] = t["flux"] * 3200.0 # 3200MWth max
+        
+        # Heat transfer
+        # Q_gen - Q_removed = M*Cp*dT/dt
+        q_gen = t["power_mw"]
+        q_removed = (t["temp"] - 20) * 10.0 * cooling_factor # Simple UA*(T-Tsink)
+        
+        delta_temp = (q_gen - q_removed) * 0.05 * (dt / conf.thermal_inertia)
+        t["temp"] += delta_temp
+        
+        # --- 4. Health & Safety ---
+        t["scram"] = is_scrammed
+        t["alerts"] = self.safety.alerts
+        
+        # Stability Margin
+        # Based on how close k is to Prompt Critical
+        # And how much thermal margin is left
+        t["stability_margin"] = max(0, 100 - (abs(self.physics.reactivity) * 50000) - ((t["temp"]/1000)*50))
+        
+        # Damage
+        if t["temp"] > 900:
+             # Fuel melting
+             t["health"] -= 0.5 * dt
+        
+        if t["power_mw"] > 4000:
+             # Overpressure
+             t["health"] -= 1.0 * dt
+             
         self._record_history()
-        # Decay temporary disturbances
-        # 5. Damage Accumulation (Simplified)
-        if temp > 800:
-            damage_rate = (temp - 800) * 0.01 * dt # 1000C = 2% per sec
-            self.telemetry["health"] = max(0.0, self.telemetry["health"] - damage_rate)
-            self.telemetry["risk_accumulated"] += damage_rate
         
-        self.telemetry.update({
-            "flux": flux,
-            "power_mw": flux * 2000.0,
-            "temp": temp,
-            "reactivity": self.physics.reactivity,
-            "period": self.physics.period,
-            "alerts": self.safety.alerts,
-            "scram": is_scrammed,
-            "stability_margin": stability,
-            "control_quality": max(0.0, 1.0 - (abs(self.physics.reactivity) * 500)),
-            "escalation_momentum": (self.telemetry["temp"] - 300) / 1000.0 if self.telemetry["temp"] > 350 else 0.0,
-            "irreversibility_score": (100.0 - self.telemetry["health"]) / 100.0
-        })
-        
-        self._record_history()
-        # Decay temporary disturbances
-        self.config.disturbance_flux *= 0.9 # Decay spike quickly
+        # Decay disturbance
+        if conf.disturbance_flux > 0: conf.disturbance_flux *= 0.9
 
     def apply_preset(self, preset_name):
         """Applies a named physics/context configuration."""
         if preset_name == "STABLE":
-            self.config.responsiveness = 0.8  # Calm
-            self.config.thermal_inertia = 2.0 # Slow heat
-            self.config.feedback_strength = 1.5 # Strong damping
-            
+            self.config.responsiveness = 0.8
+            self.config.disturbance_flux = 0
         elif preset_name == "VOLATILE":
-            self.config.responsiveness = 1.8  # Twitchy
-            self.config.thermal_inertia = 0.5 # Fast heat
-            self.config.feedback_strength = 0.5 # Weak damping
-            
+            self.config.responsiveness = 1.5
+            self.telemetry["xenon"] = 2.0 # High poison, hard to start
         elif preset_name == "DEGRADED":
-            self.config.responsiveness = 1.2
-            self.config.feedback_strength = 0.2 # Near unstable
-            self.telemetry["health"] = 75.0      # Pre-damaged
-            self.telemetry["risk_accumulated"] = 50.0
+            self.config.cooling_penalty = 0.8
+            self.telemetry["health"] = 80.0
 
     def set_state_override(self, telemetry_override):
         self.telemetry.update(telemetry_override)
-        # Force history record for smoothness in replay
         self._record_history()
 
     def _record_history(self):
-        # In scenario mode we might want higher freq, but keep 5s for now
-        # or force it if called manually
         if len(self.history) == 0 or self.time_seconds - self.history[-1]["time"] >= 1.0:
             self.history.append({
                 "time": self.time_seconds,
@@ -188,6 +240,7 @@ class ReactorUnit:
         return {
             "id": self.id,
             "name": self.name,
+            "type": self.type.value,
             "telemetry": self.telemetry,
             "controls": self.control_state,
             "history": self.history
@@ -196,8 +249,9 @@ class ReactorUnit:
 class ReactorEngine:
     def __init__(self):
         self.units = {
-            "A": ReactorUnit("A", "UNIT-1 (PWR)"),
-            "B": ReactorUnit("B", "UNIT-2 (BWR)")
+            "A": ReactorUnit("A", "UNIT-1 (PWR)", ReactorType.PWR),
+            "B": ReactorUnit("B", "UNIT-2 (BWR)", ReactorType.BWR),
+            "C": ReactorUnit("C", "UNIT-3 (RBMK)", ReactorType.RBMK)
         }
         self.global_time = 0
         self.active_scenario = None
@@ -209,17 +263,19 @@ class ReactorEngine:
             self.active_scenario = SCENARIOS[scenario_id]
             self.scenario_time = 0.0
             # Unit A becomes the Replay Actor
-            self.units["A"] = ReactorUnit("A", self.active_scenario.title)
+            # We must set correct type for scenario
+            scen_type = ReactorType.RBMK if "Chernobyl" in self.active_scenario.title else ReactorType.PWR
+            
+            self.units["A"] = ReactorUnit("A", self.active_scenario.title, scen_type)
             # Set Initial State
             initial_phase = self.active_scenario.phases[0]
             self.current_phase = initial_phase
             self.units["A"].set_state_override(initial_phase["telemetry"])
-            # Clear history
             self.units["A"].history = []
             
     def unload_scenario(self):
         self.active_scenario = None
-        self.units["A"] = ReactorUnit("A", "UNIT-1 (PWR)")
+        self.units["A"] = ReactorUnit("A", "UNIT-1 (PWR)", ReactorType.PWR)
 
     def tick(self, dt=1.0):
         if self.active_scenario:
@@ -234,7 +290,6 @@ class ReactorEngine:
         self.units["A"].time_seconds = self.scenario_time
         
         # 1. Determine Phase
-        # Find the latest phase that has started
         active_p = self.active_scenario.phases[0]
         for p in self.active_scenario.phases:
             if self.scenario_time >= p["time"]:
@@ -242,26 +297,21 @@ class ReactorEngine:
         
         self.current_phase = active_p
         
-        # 2. Apply State (Interpolate or Snap)
-        # For now, simply snap to phase target values to ensure we hit critical points
-        # In a real future version, we would interpolate between phases.
+        # 2. Apply State
+        # In scenario mode, we override physics significantly
         target = active_p["telemetry"]
-        
-        # Add some jitter or smoothing if needed, but strict adherence is better for education
         self.units["A"].set_state_override(target)
             
     def update_controls(self, unit_id, controls):
         if self.active_scenario and unit_id == "A":
-            return # Locked controls in replay mode
+            return 
             
         if unit_id in self.units:
             self.units[unit_id].control_state.update(controls)
 
     def update_config(self, unit_id, config_dict):
-        """Dynamic tuning of physics engine"""
         if unit_id in self.units:
             u_conf = self.units[unit_id].config
-            # Bulk update
             for k, v in config_dict.items():
                 if hasattr(u_conf, k):
                     setattr(u_conf, k, v)
@@ -270,19 +320,12 @@ class ReactorEngine:
         if unit_id in self.units:
             u_conf = self.units[unit_id].config
             if type == "SPIKE":
-                u_conf.disturbance_flux = 0.5 # 50% Flux Jump
+                u_conf.disturbance_flux = 0.5 
             elif type == "COOLING_FAIL":
-                u_conf.cooling_penalty = 0.2 # 80% loss of cooling
+                u_conf.cooling_penalty = 0.2
             elif type == "RESET":
                 u_conf.disturbance_flux = 0
                 u_conf.cooling_penalty = 1.0
-                u_conf.non_linearity = 0.0
-            elif type == "EARTHQUAKE":
-                u_conf.disturbance_flux = 0.2 # Shaking
-                u_conf.cooling_penalty = 0.8  # Pipe Stress
-                u_conf.non_linearity = 0.8    # Chaos
-            elif type == "FLOOD":
-                u_conf.cooling_penalty = 0.4  # Massive cooling loss
             
     def get_all_states(self):
         states = {uid: u.get_full_state() for uid, u in self.units.items()}

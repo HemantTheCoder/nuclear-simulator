@@ -1,283 +1,234 @@
 import streamlit as st
 import pandas as pd
 import base64
-from logic.engine import ReactorEngine
-from logic.visuals import VisualGenerator
 import time
+from logic.engine import ReactorEngine, ReactorType
+from logic.visuals import VisualGenerator
 from views import god_mode
+
+def render_annunciator_panel(telemetry):
+    """Renders a grid of alarm lights."""
+    alerts = {
+        "SCRAM": telemetry.get("scram", False),
+        "HIGH FLUX": telemetry.get("flux", 0) > 1.1,
+        "LOW PRES": telemetry.get("pressure", 150) < 100,
+        "HIGH TEMP": telemetry.get("temp", 300) > 600,
+        "CORE INTG": telemetry.get("health", 100) < 80,
+        "RAD WARN": telemetry.get("flux", 0) > 0.8,
+        "PUMP TRIP": telemetry.get("flow_rate", 100) < 50,
+        "VOID ALRM": telemetry.get("void_fraction", 0) > 0.4
+    }
+    
+    st.markdown("""
+    <style>
+    .annunciator-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 5px;
+        margin-bottom: 10px;
+        background: #000;
+        padding: 5px;
+        border: 2px solid #555;
+    }
+    .alarm-box {
+        background-color: #333;
+        color: #555;
+        text-align: center;
+        padding: 8px;
+        font-size: 0.7em;
+        font-weight: bold;
+        border: 1px solid #444;
+        border-radius: 2px;
+    }
+    .alarm-active {
+        background-color: #e74c3c;
+        color: #fff;
+        animation: blink 1s infinite;
+        box-shadow: 0 0 10px #e74c3c;
+    }
+    @keyframes blink { 50% { opacity: 0.5; } }
+    </style>
+    <div class="annunciator-grid">
+    """, unsafe_allow_html=True)
+    
+    html = '<div class="annunciator-grid">'
+    for label, active in alerts.items():
+        cls = "alarm-active" if active else ""
+        html += f'<div class="alarm-box {cls}">{label}</div>'
+    html += '</div>'
+    st.markdown(html, unsafe_allow_html=True)
 
 def show(navigate_func):
     # --- 1. Init Reactor Engine ---
     if 'engine' not in st.session_state or not isinstance(st.session_state.engine, ReactorEngine):
         st.session_state.engine = ReactorEngine()
         st.session_state.selected_container = "A"
-        st.session_state.active_control_tab = "Physics"
     
     engine = st.session_state.engine
     states = engine.get_all_states()
     
-    # --- 2. REACTOR STATUS HEADER ---
+    # --- 2. HEADER & SELECTION ---
     st.markdown("## ☢️ NUCLEAR CONTROL ROOM")
     
-    # Unit Selector
+    # Unit Selector Logic
     cols = st.columns(3)
-    unit_ids = ["A", "B"]
+    unit_ids = ["A", "B", "C"]
     
     for i, u_id in enumerate(unit_ids):
+        if u_id not in states: continue
         data = states[u_id]
         telemetry = data['telemetry']
+        r_type = data.get("type", "PWR")
         is_selected = (st.session_state.selected_container == u_id)
         
         with cols[i]:
-            status_icon = "🟢" if telemetry['temp'] < 400 else ("🔴" if telemetry['temp'] > 600 else "🟠")
+            status_color = "🟢" if telemetry['temp'] < 600 else "🔴"
+            if telemetry['scram']: status_color = "⚫"
             
-            # Mini Visual
-            svg = VisualGenerator.get_reactor_svg({
-                "temp": telemetry["temp"],
-                "flux": telemetry["flux"],
-                "rods": data['controls']["rods_pos"]
-            })
-            b64_svg = base64.b64encode(svg.encode('utf-8')).decode("utf-8")
-            st.markdown(f'<div style="text-align:center; margin-bottom:5px;"><img src="data:image/svg+xml;base64,{b64_svg}" style="width:50px; height:60px;"></div>', unsafe_allow_html=True)
-            
-            label = f"{status_icon} {data['name']} {telemetry['power_mw']:.0f}MW"
+            label = f"{status_color} {data['name']} [{r_type}]"
             if st.button(label, key=f"sel_{u_id}", use_container_width=True, type="primary" if is_selected else "secondary"):
                 st.session_state.selected_container = u_id
                 st.rerun()
-                
+
     st.markdown("---")
-
-    # --- 3. VIEW MODE & GLOBAL ACTION ---
-    c_preset, c_mode, c_adv = st.columns([1.5, 1.5, 1])
     
-    with c_preset:
-         st.markdown("##### 🏁 SCENARIO PRESET")
-         preset = st.selectbox("Select Context", ["STABLE", "VOLATILE", "DEGRADED"], label_visibility="collapsed")
-         if st.button("APPLY PRESET", use_container_width=True):
-             engine.units["A"].apply_preset(preset)
-             st.rerun()
-
+    # --- 3. GLOBAL CONTROLS ---
+    c_mode, c_run = st.columns([2, 1])
     with c_mode:
-         # GLOBAL MODE TOGGLE
-         st.markdown("##### 🎮 OPERATOR MODE")
-         flight_mode = st.radio("Operator Mode", ["Monitor", "Control Panel", "God Mode 👁️"], index=1, horizontal=True, label_visibility="collapsed")
-         
-         
-    # Check flight mode outside of column context to allow full-width rendering
-    # We need to capture the value from the loop or the widget
-    # The widget variable `flight_mode` is available in the local scope
-    
+        flight_mode = st.radio("Mode", ["Monitor", "Control Panel", "God Mode 👁️"], index=1, horizontal=True, label_visibility="collapsed")
+    with c_run:
+        auto_run = st.toggle("AUTO RUN (1x)", value=st.session_state.get("auto_run", False), key="auto_run_toggle")
+        if st.button("STEP (+1s)"):
+            engine.tick(1.0)
+            st.rerun()
+
     if flight_mode == "God Mode 👁️":
         god_mode.show()
-        return # Halt execution of standard panel
+        return
 
-    is_control = (flight_mode == "Control Panel")
-         
-    with c_adv:
-        # Time Control (Auto-Run)
-        st.markdown("##### ⏱ CLOCK")
-        auto_run = st.toggle("AUTO RUN", value=st.session_state.get("auto_run", False), key="auto_run_toggle")
-        
-        if st.button("STEP (+1s)", use_container_width=True):
-             engine.tick(dt=1.0)
-             st.rerun()
-
-    # --- 4. FOCUS VIEW (CONTROL ROOM) ---
+    # --- 4. MAIN DASHBOARD ---
     selected_id = st.session_state.selected_container
     data = states[selected_id]
     telemetry = data['telemetry']
     controls = data['controls']
+    r_type = data.get("type", "PWR")
     
-    # 4a. CAUSE -> EFFECT RIBBON (Visual Physics Engine)
-    # Determine active step based on state
-    step = 1 # Nominal
-    if telemetry['reactivity'] > 0.0005: step = 2 # Reactivity Spike
-    if telemetry['flux'] > 1.2: step = 3 # Power Excursion
-    if telemetry['temp'] > 400: step = 4 # Heat Buildup
-    if telemetry['reactivity'] < 0: step = 5 # Feedback/Scram
+    # Layout: Annunciator | Visuals | Controls
+    col_vis, col_ctrl = st.columns([1.5, 1.2])
     
-    st.markdown(f"""
-    <div class="cause-ribbon-container">
-        <div class="cause-step {'active' if step==1 else ''}">CORE STABLE</div>
-        <div class="cause-arrow">➜</div>
-        <div class="cause-step {'active' if step==2 else ''}">REACTIVITY ↑</div>
-        <div class="cause-arrow">➜</div>
-        <div class="cause-step {'active' if step==3 else ''}">POWER ↑</div>
-        <div class="cause-arrow">➜</div>
-        <div class="cause-step {'active' if step==4 else ''}">HEAT ↑</div>
-        <div class="cause-arrow">➜</div>
-        <div class="cause-step {'active' if step==5 else ''}">FEEDBACK (VOID/DOPPLER)</div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # TOP BAR
-    c1, c2, c3 = st.columns([1, 1, 2])
-    # Safe Time Access
-    hist = data.get('history', [])
-    last_time = hist[-1].get('time', 0) if hist else 0
-    c1.metric("Sim Time", f"{last_time} s")
-    c2.metric("Core State", "CRITICAL" if telemetry['flux'] > 0 else "SHUTDOWN")
-    
-    with c3:
-        if telemetry['alerts']:
-            st.error(" | ".join(telemetry['alerts']))
-        else:
-            # Health Bar
-            health = telemetry.get('health', 100.0)
-            color = "green" if health > 80 else ("orange" if health > 50 else "red")
-            st.markdown(f"**STRUCTURAL INTEGRITY:** <span style='color:{color}'>{health:.1f}%</span>", unsafe_allow_html=True)
-            st.progress(health / 100.0)
-    
-    st.markdown("---")
-    
-    # LAYOUT: LEFT (Controls), CENTER (Core), RIGHT (Meters)
-    col_ctrl, col_core, col_met = st.columns([1.2, 1.5, 1.3])
-    
-    # --- LEFT: CONTROLS ---
-    with col_ctrl:
-        st.markdown("### 🎛 CONTROLS")
-    
-        if not is_control:
-             st.info("System in Monitor Mode.")
-             st.markdown("<div style='opacity:0.6; pointer-events:none;'>", unsafe_allow_html=True)
-
-        new_controls = controls.copy()
+    with col_vis:
+        st.markdown("### CORE STATUS")
+        render_annunciator_panel(telemetry)
         
-        # Scram Button (Always Valid)
-        if st.button("🛑 SCRAM SWITCH", type="primary", use_container_width=True):
-             new_controls["manual_scram"] = True
-             engine.update_controls(selected_id, new_controls)
-             new_controls["manual_scram"] = True
-             engine.update_controls(selected_id, new_controls)
-             st.rerun()
-             
-        st.markdown("---")
-        
-        # Physics Control
-        st.markdown("**REACTIVITY** <span class='delay-badge'>~0.5s Lag</span>", unsafe_allow_html=True)
-        new_controls["rods_pos"] = st.slider("Control Rods Insertion (%)", 0.0, 100.0, controls["rods_pos"], key="rod_sl")
-        st.caption("0% = Max Power | 100% = Shutdown")
-        
-        st.markdown("**COOLING** <span class='delay-badge'>~3.0s Lag</span>", unsafe_allow_html=True)
-        new_controls["pump_speed"] = st.slider("Primary Pump Speed (%)", 0.0, 100.0, controls["pump_speed"])
-        new_controls["cooling_eff"] = st.slider("Heat Exchanger Eff (%)", 0.0, 100.0, controls["cooling_eff"])
-        
-        # Safety Override
-        new_controls["safety_enabled"] = st.toggle("Safety Interlocks", value=controls["safety_enabled"])
-        if not new_controls["safety_enabled"]:
-            st.warning("⚠️ INTERLOCKS DISABLED")
-
-        if not is_control:
-             st.markdown("</div>", unsafe_allow_html=True)
-             
-        if new_controls != controls:
-             engine.update_controls(selected_id, new_controls)
-             st.rerun()
-
-        # ENGINEERING TAB (Advanced Physics)
-        st.markdown("---")
-        with st.expander("🛠 ENGINEERING CONFIG", expanded=False):
-            # 1. Physics Tuning
-            st.markdown("##### PHYSICS TUNING")
-            conf = data['config'] if 'config' in data else engine.units[selected_id].config # Fallback
-            
-            new_conf = {}
-            new_conf['responsiveness'] = st.slider("Responsiveness (Damping)", 0.5, 2.0, conf.responsiveness, 0.1, help="Higher = Twitchy, Lower = Sluggish")
-            new_conf['thermal_inertia'] = st.slider("Thermal Inertia", 0.5, 5.0, conf.thermal_inertia, 0.1, help="Higher = Slower Temp Change")
-            new_conf['feedback_strength'] = st.slider("Feedback Strength", 0.0, 2.0, conf.feedback_strength, 0.1, help="Higher = Stronger Self-Stabilization")
-            
-            if new_conf['responsiveness'] != conf.responsiveness or new_conf['thermal_inertia'] != conf.thermal_inertia or new_conf['feedback_strength'] != conf.feedback_strength:
-                engine.update_config(selected_id, new_conf)
-                st.rerun()
-
-            st.markdown("---")
-            # 2. Disturbances
-            st.markdown("##### STRESS TESTS")
-            c_d1, c_d2, c_d3 = st.columns(3)
-            if c_d1.button("⚡ FLUX SPIKE"):
-                engine.inject_disturbance(selected_id, "SPIKE")
-                st.toast("Injecting Reactivity Spike...", icon="⚡")
-            if c_d2.button("❄️ PUMP FAIL"):
-                engine.inject_disturbance(selected_id, "COOLING_FAIL")
-                st.toast("Primary Pump Efficiency Reduced!", icon="⚠️")
-            if c_d3.button("🔄 RESET ALL"):
-                engine.inject_disturbance(selected_id, "RESET")
-                st.toast("System Nominal. Disturbances cleared.", icon="✅")
-
-    # --- CENTER: REACTOR CORE VISUAL ---
-    with col_core:
-        st.markdown(f"<div style='text-align:center'><b>{data['name']} REACTOR VESSEL</b></div>", unsafe_allow_html=True)
-        # Pass telemetry directly to visual generator
+        # SVG Visual
         svg = VisualGenerator.get_reactor_svg({
+            "type": r_type,
             "temp": telemetry["temp"],
             "flux": telemetry["flux"],
-            "rods": controls["rods_pos"]
+            "rods_pos": controls["rods_pos"],
+            "void_fraction": telemetry.get("void_fraction", 0.0),
+            "scram": telemetry.get("scram", False)
         })
         b64_svg = base64.b64encode(svg.encode('utf-8')).decode("utf-8")
-        # Tension Pulse Class Logic
-        tension_class = "tension-active" if telemetry.get('stability_margin', 100) < 40 else ""
-        
-        st.markdown(f"""
-        <div class="reactor-container {tension_class}">
-            <div style="font-weight:bold; margin-bottom:10px; color:#aaa; letter-spacing:2px;">{data['name']} VESSEL</div>
-            <img src="data:image/svg+xml;base64,{b64_svg}" style="width: 100%; height: 400px; filter: drop-shadow(0 0 10px rgba(52, 152, 219, 0.3));">
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div style="text-align:center"><img src="data:image/svg+xml;base64,{b64_svg}" style="width:100%; max-height:400px;"></div>', unsafe_allow_html=True)
 
-    # --- RIGHT: TELEMETRY ---
-    with col_met:
-        st.markdown("### 📊 SENSORS")
+        # Telemetry Ribbon
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Thermal Power", f"{telemetry['power_mw']:.0f} MW", f"{telemetry['flux']*100:.1f}%")
+        m2.metric("Core Temp", f"{telemetry['temp']:.0f} °C", f"{(telemetry['temp']-300):.0f}")
+        m3.metric("Structure", f"{telemetry['health']:.1f}%", delta_color="off")
+
+    with col_ctrl:
+        st.markdown(f"### 🎛 {r_type} CONTROL DESK")
         
-        st.metric("Thermal Power", f"{telemetry['power_mw']:.1f} MW", delta=f"{telemetry['flux']*100:.1f}% Flux")
-        st.metric("Core Temperature", f"{telemetry['temp']:.1f} °C", delta=f"{(telemetry['temp']-300):.1f} Delta")
-        
-        reactivity_pcm = telemetry['reactivity'] * 100000 
-        st.metric("Reactivity", f"{reactivity_pcm:.1f} pcm")
-        
-        period = telemetry['period']
-        p_str = f"{period:.1f} s" if period < 999 else "INF"
-        st.metric("Reactor Period", p_str)
-        
-        # Custom Telemetry HTML for Trends (Replaces standard metric for deeper immersion)
-        def trend_html(label, val, unit, trend_class):
-            return f"""
-            <div style="background:#222; border:1px solid #333; padding:10px; margin-bottom:5px; border-radius:5px;">
-                <div style="font-size:0.8em; color:#888;">{label}</div>
-                <div class="telemetry-val {trend_class}">
-                    {val} <span style="font-size:0.6em; color:#aaa; margin-left:5px;">{unit}</span>
-                </div>
-            </div>
-            """
-        
-        # Determine trends
-        p_trend = "trend-up" if telemetry['power_mw'] > 1000 else ("trend-flat" if telemetry['power_mw'] > 0 else "trend-down")
-        if telemetry['scram']: p_trend = "trend-down"
-        
-        st.markdown(trend_html("THERMAL POWER", f"{telemetry['power_mw']:.1f}", "MW", p_trend), unsafe_allow_html=True)
-        st.markdown(trend_html("CORE TEMP", f"{telemetry['temp']:.1f}", "°C", "trend-up" if telemetry['temp'] > 600 else "trend-flat"), unsafe_allow_html=True)
-        
-        st.markdown("---")
-        if telemetry['scram']:
-            st.error("REACTOR TRIPPED (SCRAM)")
-        elif telemetry['temp'] > 400:
-            st.warning("TEMP WARNING")
+        if flight_mode == "Monitor":
+            st.info("Controls Locked (Monitor Mode)")
         else:
-            st.success("OPERATING NORMALLY")
+            new_controls = controls.copy()
+            
+            # SCRAM BUTTON
+            btn_label = "AZ-5 (SCRAM)" if r_type == "RBMK" else "MANUAL SCRAM"
+            if st.button(btn_label, type="primary", use_container_width=True):
+                new_controls["manual_scram"] = True
+                engine.update_controls(selected_id, new_controls)
+                st.rerun()
+            
+            st.markdown("---")
+            
+            # CORE CONTROLS
+            # 1. Rods
+            st.markdown("**REACTIVITY CONTROL**")
+            rod_label = "Control Rods Insertion"
+            new_controls["rods_pos"] = st.slider(rod_label, 0.0, 100.0, controls["rods_pos"], key="rod_slider")
+            
+            # 2. Flow/Cooling
+            st.markdown("**COOLANT SYSTEM**")
+            new_controls["pump_speed"] = st.slider("Main Pump Speed (%)", 0.0, 100.0, controls["pump_speed"], key="pump_slider")
+            
+            # 3. Type Specific
+            if r_type == "PWR":
+                st.info("ℹ️ Maintain pressure to prevent boiling.")
+            elif r_type == "BWR":
+                st.info("ℹ️ Boiling is nominal. Monitor void fraction.")
+                st.metric("Steam Voids", f"{telemetry.get('void_fraction',0)*100:.1f}%")
+            elif r_type == "RBMK":
+                st.warning("⚠️ POSITIVE VOID COEFFICIENT. Avoid low power operation.")
+                st.metric("Xenon Poison", f"{telemetry.get('xenon',1.0):.2f}")
 
-    # --- BOTTOM: GRAPHS ---
-    st.markdown("### 📈 RECORDER TRACE")
+            # Interlocks
+            new_controls["safety_enabled"] = st.checkbox("Safety Interlocks Enabled", value=controls["safety_enabled"])
+
+            if new_controls != controls:
+                engine.update_controls(selected_id, new_controls)
+                st.rerun()
+
+    # --- 6. PROCEDURES MANUAL ---
+    with st.expander("📚 REACTOR OPERATING PROCEDURES", expanded=False):
+        if r_type == "RBMK":
+            st.markdown("""
+            **RBMK-1000 STANDARD OPERATING PROCEDURE**
+            
+            **1. STARTUP**
+            - Ensure Flow > 80%
+            - Withdraw rods to 30%
+            - **WARNING:** Avoid prolonged operation < 700 MW (Xenon Instability)
+            
+            **2. EMERGENCY (AZ-5)**
+            - In case of runaway power or loss of coolant:
+            - Press **AZ-5** immediately.
+            - **CAUTION:** Early shutdown phase may induce temporary positive reactivity (Tip Effect). 
+            """)
+        elif r_type == "PWR":
+            st.markdown("""
+            **PWR STANDARD OPERATING PROCEDURE**
+            
+            **1. CRITICALITY**
+            - Withdraw rods slowly.
+            - Monitor Period (> 10s).
+            - Maintain Pressure (Pressurizer Heaters ON).
+            
+            **2. SHUTDOWN**
+            - Insert rods fully.
+            - Engage Boron Injection if rods fail.
+            """)
+        elif r_type == "BWR":
+            st.markdown("""
+            **BWR STANDARD OPERATING PROCEDURE**
+            
+            **1. POWER ASCENSION**
+            - Increase Recirculation Flow to increase Power (Void sweeping).
+            - Withdraw Control Rods for shaping.
+            - Monitor Steam Line Radiation.
+            """)
+
+    # --- 5. GRAPHS ---
     if len(data['history']) > 2:
+        st.markdown("### 📈 FLIGHT RECORDER")
         df = pd.DataFrame(data['history'])
-        c1, c2 = st.columns(2)
-        with c1:
-            st.line_chart(df, x="time", y="power", height=200)
-        with c2:
-            st.line_chart(df, x="time", y="temp", height=200)
-    else:
-        st.info("Insufficient data. Start simulation clock.")
-
-    # --- AUTO RUN LOGIC (Must be last to ensure UI renders first) ---
+        st.line_chart(df, x="time", y=["power", "temp"])
+    
+    # Auto Run Tick
     if auto_run:
-        time.sleep(0.5) # Reduced for smoother feel
-        engine.tick(dt=1.0) # Sim moves 1s per 0.5s real time
+        time.sleep(0.5)
+        engine.tick(1.0)
         st.rerun()
