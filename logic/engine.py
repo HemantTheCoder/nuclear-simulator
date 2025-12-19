@@ -388,12 +388,12 @@ class ReactorUnit:
             self.generate_post_mortem()
 
         # Precursor Logging
-        if t["temp"] > 2000 and "High Fuel Temp" not in [e["event"] for e in self.event_log[-3:]]:
-            self.log_event("Fuel Temperature Critical (>2000C)")
+        if t["temp"] > 2000 and not any("Fuel Temperature Critical" in e["event"] for e in self.event_log[-3:]):
+            self.log_event(f"Fuel Temperature Critical: {t['temp']:.1f}°C")
         if t["void_fraction"] > 0.8 and self.type == ReactorType.RBMK:
-             self.log_event("Void Fraction Critical (>80%)")
+             self.log_event(f"Void Fraction Critical: {t['void_fraction']*100:.1f}%")
         if t["xenon"] > 2.0:
-             self.log_event("Xenon Pit Depth Maximum")
+             self.log_event(f"Xenon Pit Depth Maximum: {t['xenon']:.2f}")
 
         self._record_history()
         

@@ -306,6 +306,13 @@ def show(navigate_func):
                 st.rerun()
 
             if new_controls != controls:
+                # Log the User Action
+                for key, val in new_controls.items():
+                    if controls.get(key) != val:
+                        # Format value for readability
+                        val_str = f"{val:.1f}" if isinstance(val, float) else str(val)
+                        unit.log_event(f"USER: Set {key} to {val_str}")
+                        
                 engine.update_controls(selected_id, new_controls)
                 st.rerun()
 
