@@ -25,6 +25,11 @@ def show():
     </div>
     """, unsafe_allow_html=True)
     
+    # Auto-Run Toggle (Top Side)
+    col_t_1, col_t_2 = st.columns([4, 1])
+    with col_t_2:
+        god_autorun = st.toggle("GOD TIME (Auto-Run)", value=st.session_state.get("auto_run", False))
+    
     # --- LAYOUT: 3 COLUMNS (LAWS | TRUTH | CONSEQUENCES) ---
     c_laws, c_truth, c_cons = st.columns([1.2, 1.5, 1.3])
     
@@ -147,7 +152,8 @@ def show():
     st.markdown(trace_html, unsafe_allow_html=True)
     
     # AUTO RUN logic needed here too
-    if st.toggle("GOD TIME (Auto-Run)", value=st.session_state.get("auto_run", False)):
+    # AUTO RUN logic (Using top toggle state)
+    if god_autorun:
          time.sleep(0.5)
          engine.tick(1.0)
          st.rerun()
