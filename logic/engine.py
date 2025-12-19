@@ -47,6 +47,7 @@ class ReactorConfig:
         # Meta-Physics
         self.non_linearity = 0.2 if r_type == ReactorType.RBMK else 0.0
         self.coupling_strength = 0.5 if r_type == ReactorType.RBMK else 1.0
+        self.safety_bias = 0.5
 
 class ReactorUnit:
     def __init__(self, id, name, r_type=ReactorType.PWR):
