@@ -43,6 +43,12 @@ views_analytics = importlib.import_module("views.analytics")
 # Logic for SIDEBAR (Global Navigation)
 with st.sidebar:
     st.title("☢️ CONTROL NET")
+    st.markdown("""
+        <div style="font-size: 0.85em; color: #aaa; margin-bottom: 20px; margin-top: -15px;">
+            By <a href="https://www.linkedin.com/in/hemantkumar2430/" target="_blank" style="color: #ffcc00; text-decoration: none;">Hemant Kumar</a> & 
+            <a href="https://www.linkedin.com/in/jaidev-joya-0a5690284/" target="_blank" style="color: #ffcc00; text-decoration: none;">Jaidev Joya</a>
+        </div>
+    """, unsafe_allow_html=True)
     if st.button("Control Room", use_container_width=True): navigate_to("simulator")
     if st.button("Incident Library", use_container_width=True): navigate_to("incidents")
     if st.button("Analytics & Logs", use_container_width=True): navigate_to("analytics")
