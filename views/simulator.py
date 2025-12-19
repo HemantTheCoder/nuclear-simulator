@@ -114,6 +114,7 @@ def show(navigate_func):
 
     # --- 4. MAIN DASHBOARD ---
     selected_id = st.session_state.selected_container
+    unit = engine.units[selected_id] # Access actual object for advanced props
     data = states[selected_id]
     telemetry = data['telemetry']
     controls = data['controls']
@@ -151,9 +152,7 @@ def show(navigate_func):
         if rads > 0:
             st.metric("☢️ RAD RELEASE", f"{rads:.2f} Sv", delta_color="inverse")
 
-        if rads > 0:
-            st.metric("☢️ RAD RELEASE", f"{rads:.2f} Sv", delta_color="inverse")
-            
+
     # CHECK FOR DEATH
     if telemetry.get("health", 100) <= 0:
         st.markdown("---")
