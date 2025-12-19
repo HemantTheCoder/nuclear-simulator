@@ -5,7 +5,6 @@ import time
 from datetime import datetime
 from logic.engine import ReactorEngine, ReactorType
 from logic.visuals import VisualGenerator
-from views import god_mode
 from views.components.audio import render_audio_engine
 from views.components.ui import render_annunciator_panel, render_event_log
 from services.reporting import ReportGenerator
@@ -58,7 +57,7 @@ def show(navigate_func):
     # --- 3. GLOBAL CONTROLS ---
     c_mode, c_run = st.columns([2, 1])
     with c_mode:
-        flight_mode = st.radio("Mode", ["Monitor", "Control Panel", "God Mode 👁️"], index=1, horizontal=True, label_visibility="collapsed")
+        flight_mode = st.radio("Mode", ["Monitor", "Control Panel"], index=1, horizontal=True, label_visibility="collapsed")
     with c_run:
         auto_run = st.toggle("AUTO RUN (1x)", value=st.session_state.get("auto_run", False), key="auto_run_toggle")
         if st.button("STEP (+1s)"):
@@ -86,10 +85,6 @@ def show(navigate_func):
             - **ECCS**: Emergency Cooling. Saves fuel, shocks vessel.
             - **VENT**: Releases pressure & radiation.
             """)
-
-    if flight_mode == "God Mode 👁️":
-        god_mode.show()
-        return
 
     # --- 4. MAIN DASHBOARD ---
     selected_id = st.session_state.selected_container
