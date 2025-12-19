@@ -48,9 +48,9 @@ SCENARIOS = {
             {
                 "time": 110,
                 "label": "Explosion",
-                "desc": "Steam explosion destroys the reactor vessel. Graphite fire begins.",
-                "telemetry": {"power_mw": 30000, "temp": 2000, "flux": 0.0, "rods": 100, "reactivity": 0.0, "period": 0},
-                "analysis": "TOTAL SYSTEM LOSS. CATASTROPHIC FAILURE."
+                "desc": "Steam explosion destroys the reactor vessel. Graphite fire begins. Manual controls jammed. Containment non-existent.",
+                "telemetry": {"power_mw": 30000, "temp": 3000, "flux": 0.0, "rods": 100, "reactivity": 0.0, "period": 0, "radiation_released": 500.0, "melted": True},
+                "analysis": "CATASTROPHIC DESIGN FAILURE. The positive scram effect coupled with low ORAM (Operational Reactivity Margin) left the operators powerless."
             }
         ]
     ),
@@ -89,8 +89,8 @@ SCENARIOS = {
                 "time": 120,
                 "label": "Meltdown",
                 "desc": "Top of core is uncovered. Zirconium cladding reacts with steam (Hydrogen bubble).",
-                "telemetry": {"power_mw": 0, "temp": 1200, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999},
-                "analysis": "Fuel melts. Containment vessel holds."
+                "telemetry": {"power_mw": 0, "temp": 1500, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999, "melted": True, "radiation_released": 1.5, "health": 20.0},
+                "analysis": "Partial core melt confirmed. Hydrogen bubble creates dangerous pressure. Containment integrity preserved but core is severely damaged."
             }
         ]
     ),
@@ -128,9 +128,9 @@ SCENARIOS = {
              {
                 "time": 200,
                 "label": "Hydrogen",
-                "desc": "Zirconium-Steam reaction generates Hydrogen. Venting fails.",
-                "telemetry": {"power_mw": 0, "temp": 2000, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999},
-                "analysis": "Hydrogen explosion blows roof off reactor building."
+                "desc": "Zirconium-Steam reaction generates Hydrogen. Venting fails. Containment breached.",
+                "telemetry": {"power_mw": 0, "temp": 2850, "flux": 0.0, "rods": 100, "reactivity": -0.05, "period": 999, "melted": True, "radiation_released": 250.0, "containment_integrity": 0.0, "health": 0.0},
+                "analysis": "Total Station Blackout led to irreversible core dryout and subsequent hydrogen explosion. Major radiological release."
             }
         ]
     )

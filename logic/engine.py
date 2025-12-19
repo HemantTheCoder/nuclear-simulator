@@ -389,7 +389,7 @@ class ReactorUnit:
 
         # Precursor Logging
         if t["temp"] > 2000 and not any("Fuel Temperature Critical" in e["event"] for e in self.event_log[-3:]):
-            self.log_event(f"Fuel Temperature Critical: {t['temp']:.1f}°C")
+            self.log_event(f"Fuel Temperature Critical: {t['temp']:.1f}C")
         if t["void_fraction"] > 0.8 and self.type == ReactorType.RBMK:
              self.log_event(f"Void Fraction Critical: {t['void_fraction']*100:.1f}%")
         if t["xenon"] > 2.0:

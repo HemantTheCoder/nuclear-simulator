@@ -1,4 +1,6 @@
-streamlit
+numpy
+fpdf2
+kaleido
 plotly
 pandas
-numpy
+streamlit

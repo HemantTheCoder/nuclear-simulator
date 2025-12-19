@@ -6,6 +6,7 @@ from logic.engine import ReactorEngine, ReactorType
 from logic.visuals import VisualGenerator
 from views import god_mode
 from views.components.audio import render_audio_engine
+from services.reporting import ReportGenerator
 
 def render_annunciator_panel(telemetry):
     """Renders a grid of alarm lights."""
@@ -210,6 +211,16 @@ def show(navigate_func):
         if st.button(f"RESET {unit.name} (NOMINAL)"):
              unit.reset()
              st.rerun()
+             
+        # New: Forensic Download
+        pdf_data = ReportGenerator.generate_pdf(unit, unit.history)
+        st.download_button(
+            label="📄 DOWNLOAD FORENSIC REPORT (PDF)",
+            data=pdf_data,
+            file_name=f"ACCIDENT_REPORT_{unit.name}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
         
         return # STOP RENDERING CONTROLS
 
@@ -304,6 +315,17 @@ def show(navigate_func):
             if st.button("🔄 RESET UNIT TO NOMINAL"):
                 unit.reset()
                 st.rerun()
+            
+            # New: Session Report
+            st.markdown("---")
+            pdf_data = ReportGenerator.generate_pdf(unit, unit.history)
+            st.download_button(
+                label="📥 SAVE SESSION REPORT (PDF)",
+                data=pdf_data,
+                file_name=f"SESSION_{unit.name}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
 
             if new_controls != controls:
                 # Log the User Action
