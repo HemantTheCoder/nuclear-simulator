@@ -76,6 +76,9 @@ class ReactorUnit:
             # BWR/RBMK
             "feedwater_flow": 100.0, # % Match steam flow to maintain level
             "turbine_bypass": 0.0, # % Steam dump
+            # Emergency
+            "manual_vent": False, 
+            "eccs_active": False,
         }
         
         self.telemetry = {
@@ -98,6 +101,10 @@ class ReactorUnit:
             "boron_ppm": 1000.0 if r_type == ReactorType.PWR else 0.0,
             # RBMK specific
             "graphite_tip_position": 0.0, 
+            # Catastrophic State
+            "melted": False,
+            "containment_integrity": 100.0,
+            "radiation_released": 0.0, # Sieverts
         }
         
         self.history = []
@@ -142,9 +149,30 @@ class ReactorUnit:
             if c["pressurizer_heaters"]: p_target += 20.0
             if c["pressurizer_sprays"]: p_target -= 20.0
             
+            
             # Inertia
             t["pressure"] += (p_target - t["pressure"]) * 0.1 * dt
             
+        # Emergency Venting
+        if c.get("manual_vent", False) and t["pressure"] > 5.0:
+            vent_rate = 50.0 # Bar/s
+            t["pressure"] = max(1.0, t["pressure"] - vent_rate * dt)
+            t["water_level"] -= 0.1 * dt # Lose inventory
+            t["radiation_released"] += 5.0 * dt # Massive release
+            self.safety.alerts.append("VENTING RADS")
+
+        # ECCS Injection
+        if c.get("eccs_active", False):
+            # Massive flow, cold water
+            t["water_level"] += 0.5 * dt 
+            t["temp"] -= 50.0 * dt # Rapid cooling
+            t["boron_ppm"] += 100.0 * dt # ECCS water is heavily borated
+            
+            # Thermal Shock damage
+            if t["temp"] > 800:
+                t["health"] -= 2.0 * dt
+                self.safety.alerts.append("THERMAL SHOCK")
+
         # Boron Logic (PWR)
         boron_reactivity = 0.0
         if self.type == ReactorType.PWR:
@@ -251,10 +279,20 @@ class ReactorUnit:
              # Fuel melting
              t["health"] -= 0.5 * dt
         
-        if t["power_mw"] > 4000:
-             # Overpressure
              t["health"] -= 1.0 * dt
              
+        # Catastrophic Failure Logic
+        if t["temp"] > 2800.0:
+            t["melted"] = True
+            t["health"] = 0.0
+            t["can_recover"] = False
+        
+        if t["pressure"] > 250.0:
+            t["containment_integrity"] = 0.0
+            t["health"] = 0.0
+            t["alerts"].append("CONTAINMENT BREACH")
+            t["radiation_released"] += 1000.0 * dt
+
         self._record_history()
         
         # Decay disturbance

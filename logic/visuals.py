@@ -10,7 +10,43 @@ class VisualGenerator:
         return "#ecf0f1" 
 
     @staticmethod
+    def get_melted_svg(telemetry):
+        return """
+        <svg width="300" height="400" viewBox="0 0 300 400" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="lavaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#ffcc00" />
+                    <stop offset="50%" stop-color="#ff0000" />
+                    <stop offset="100%" stop-color="#330000" />
+                </linearGradient>
+            </defs>
+            <rect x="0" y="0" width="300" height="400" fill="#111" />
+            
+            <!-- Cracks -->
+            <path d="M 50 100 L 150 200 L 250 50" stroke="#ff0000" stroke-width="2" fill="none" opacity="0.5" />
+            <path d="M 100 300 L 200 250 L 300 350" stroke="#ff0000" stroke-width="2" fill="none" opacity="0.5" />
+            
+            <!-- Melted Core Pile (Corium) -->
+            <path d="M 20 350 Q 150 300 280 350 L 280 400 L 20 400" fill="url(#lavaGrad)" />
+            
+            <!-- Smoke/Steam -->
+            <circle cx="100" cy="300" r="50" fill="#555" opacity="0.5">
+                <animate attributeName="cy" from="300" to="0" dur="4s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="200" cy="320" r="40" fill="#444" opacity="0.6">
+                <animate attributeName="cy" from="320" to="0" dur="5s" repeatCount="indefinite" />
+            </circle>
+
+            <text x="150" y="200" font-family="monospace" font-size="30" fill="red" text-anchor="middle" font-weight="bold">CORE MELTDOWN</text>
+            <text x="150" y="240" font-family="monospace" font-size="16" fill="yellow" text-anchor="middle">CRITICALITY ACCIDENT</text>
+        </svg>
+        """
+
+    @staticmethod
     def get_reactor_svg(telemetry):
+        if telemetry.get("melted", False):
+            return VisualGenerator.get_melted_svg(telemetry)
+
         r_type = telemetry.get("type", "PWR") # Default to PWR
         
         if r_type == "RBMK":

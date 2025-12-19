@@ -21,6 +21,10 @@ def render_annunciator_panel(telemetry):
         "HI PRESS": telemetry.get("pressure", 0) > 170
     }
     
+    if telemetry.get("melted", False):
+        st.error("CRITICAL CRITICALITY EVENT: CORE MELTDOWN CONFIRMED")
+        st.error(f"RADIATION RELEASE: {telemetry.get('radiation_released', 0):.1f} Sv")
+    
     st.markdown("""
     <style>
     .annunciator-grid {
@@ -129,7 +133,8 @@ def show(navigate_func):
             "flux": telemetry["flux"],
             "rods_pos": controls["rods_pos"],
             "void_fraction": telemetry.get("void_fraction", 0.0),
-            "scram": telemetry.get("scram", False)
+            "scram": telemetry.get("scram", False),
+            "melted": telemetry.get("melted", False)
         })
         b64_svg = base64.b64encode(svg.encode('utf-8')).decode("utf-8")
         st.markdown(f'<div style="text-align:center"><img src="data:image/svg+xml;base64,{b64_svg}" style="width:100%; max-height:400px;"></div>', unsafe_allow_html=True)
@@ -140,6 +145,11 @@ def show(navigate_func):
         m2.metric("Temp", f"{telemetry['temp']:.0f} °C")
         m3.metric("Press", f"{telemetry.get('pressure',0):.1f} Bar")
         m4.metric("Lvl", f"{telemetry.get('water_level',5):.1f} m")
+        
+        # Radiation Monitor
+        rads = telemetry.get('radiation_released', 0)
+        if rads > 0:
+            st.metric("☢️ RAD RELEASE", f"{rads:.2f} Sv", delta_color="inverse")
 
     with col_ctrl:
         st.markdown(f"### 🎛 {r_type} CONTROL DESK")
@@ -202,6 +212,31 @@ def show(navigate_func):
 
             # Interlocks
             new_controls["safety_enabled"] = st.checkbox("Safety Interlocks Enabled", value=controls["safety_enabled"])
+
+            st.markdown("---")
+            st.markdown("### 🚨 EMERGENCY OVERRIDES")
+            c_e1, c_e2 = st.columns(2)
+            
+            # ECCS
+            eccs_active = controls.get("eccs_active", False)
+            if c_e1.button("ACTUATE ECCS", type="primary" if not eccs_active else "secondary"):
+                new_controls["eccs_active"] = not eccs_active
+                st.toast("ECCS INJECTION TOGGLED" if not eccs_active else "ECCS SECURED")
+            
+            if eccs_active: st.warning("ECCS INJECTING - THERMAL SHOCK RISK")
+
+            # Vent
+            if c_e2.button("MANUAL VENT"):
+                new_controls["manual_vent"] = True
+                new_controls["eccs_active"] = controls.get("eccs_active", False) # Preserve state
+                
+            # One-shot vent reset handled by logic layer usually, but here we just need to set it to True for a tick?
+            # Ideally simulator is loop based.
+            # State based toggle is better for streamlit.
+            new_controls["manual_vent"] = st.toggle("OPEN VENT VALVES (RELEASE RADS)", value=controls.get("manual_vent", False))
+            
+            if new_controls["manual_vent"]:
+                 st.error("⚠️ VENTING TO ATMOSPHERE")
 
             if new_controls != controls:
                 engine.update_controls(selected_id, new_controls)
