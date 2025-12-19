@@ -147,8 +147,9 @@ def show_live_reconstruction(scenario, navigate_func):
 
     # --- SIMULATION LOOP ---
     if st.session_state.get("replay_running", False):
-        unit.tick(1.0)
-        time.sleep(0.1)
+        # Scale tick for smoothness (0.1s real-time step)
+        unit.tick(0.1)
+        time.sleep(0.1) 
         st.rerun()
 
 def show_reconstruction(scenario, navigate_func):

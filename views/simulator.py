@@ -324,6 +324,6 @@ def show(navigate_func):
     
     # Auto Run Tick
     if auto_run:
-        time.sleep(0.5)
-        engine.tick(1.0)
+        time.sleep(0.1)
+        engine.tick(0.1)
         st.rerun()
