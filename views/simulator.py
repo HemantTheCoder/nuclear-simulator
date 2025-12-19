@@ -62,11 +62,16 @@ def show(navigate_func):
          st.markdown("##### 🎮 OPERATOR MODE")
          flight_mode = st.radio("Operator Mode", ["Monitor", "Control Panel", "God Mode 👁️"], index=1, horizontal=True, label_visibility="collapsed")
          
-         if flight_mode == "God Mode 👁️":
-             god_mode.show()
-             return # Halt execution of standard panel
+         
+    # Check flight mode outside of column context to allow full-width rendering
+    # We need to capture the value from the loop or the widget
+    # The widget variable `flight_mode` is available in the local scope
+    
+    if flight_mode == "God Mode 👁️":
+        god_mode.show()
+        return # Halt execution of standard panel
 
-         is_control = (flight_mode == "Control Panel")
+    is_control = (flight_mode == "Control Panel")
          
     with c_adv:
         # Time Control (Auto-Run)
