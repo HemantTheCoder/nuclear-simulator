@@ -1,0 +1,299 @@
+/* SpaceX Glassmorphism Theme */
+body {
+    background: radial-gradient(circle at center, #1a1f35 0%, #0b0d17 100%);
+    color: #e0e6ed;
+    font-family: 'Rajdhani', sans-serif;
+}
+
+/* Glass Panels */
+.glass-panel {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+/* Comparison Card Styles (V7) */
+.compare-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 15px;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+}
+
+.compare-best {
+    box-shadow: 0 0 20px rgba(46, 204, 113, 0.1);
+    border-color: rgba(46, 204, 113, 0.3);
+}
+
+.compare-worst {
+    box-shadow: 0 0 20px rgba(231, 76, 60, 0.1);
+    border-color: rgba(231, 76, 60, 0.3);
+}
+
+.compare-header {
+    font-weight: bold;
+    font-size: 1.1em;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.health-pill {
+    font-size: 0.8em;
+    padding: 2px 8px;
+    border-radius: 12px;
+    color: #000;
+    font-weight: bold;
+}
+
+.health-pill-good {
+    background: #2ecc71;
+}
+
+.health-pill-warn {
+    background: #f1c40f;
+}
+
+.health-pill-crit {
+    background: #e74c3c;
+}
+
+/* Metric Blocks in Compare Card */
+.metric-block {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 0.9em;
+}
+
+.metric-label {
+    color: #8899ac;
+}
+
+.metric-val {
+    font-weight: bold;
+}
+
+/* Sparkline Container */
+.sparkline-container {
+    height: 30px;
+    width: 100%;
+    margin-top: 5px;
+    opacity: 0.7;
+}
+
+/* Existing Visual Styles */
+.visual-container-box {
+    position: relative;
+    border-radius: 50%;
+    overflow: hidden;
+    transition: all 0.5s ease;
+}
+
+/* Overlays */
+.overlay-frost {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMCIgaGVpZ2h0PSIxMCI+CiAgPHJlY3Qgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiBmaWxsPSJ3aGl0ZSIgb3BhY2l0eT0iMC4xIi8+Cjwvc3ZnPg==');
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.overlay-vacuum {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+}
+
+.overlay-radiation {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(52, 152, 219, 0.1) 3px, rgba(52, 152, 219, 0.1) 3px);
+    pointer-events: none;
+    animation: noise 0.2s infinite;
+}
+
+/* Animations */
+@keyframes noise {
+    0% {
+        transform: translate(0, 0)
+    }
+
+    10% {
+        transform: translate(-5%, -5%)
+    }
+
+    /* ... shortened ... */
+    100% {
+        transform: translate(5%, 0)
+    }
+}
+
+/* Container Cards */
+.container-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.container-card:hover {
+    border-color: #3498db;
+}
+
+.container-active {
+    background: rgba(52, 152, 219, 0.1);
+    border: 2px solid #3498db;
+}
+
+.hotspot {
+    position: absolute;
+    cursor: pointer;
+    border: 1px dashed rgba(255, 255, 255, 0.0);
+    transition: all 0.2s;
+}
+
+/* Immersive Nuclear Upgrade */
+
+/* Cause -> Effect Ribbon */
+.cause-ribbon-container {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: linear-gradient(90deg, #111, #222, #111);
+    border: 1px solid #333;
+    border-radius: 50px;
+    padding: 10px 20px;
+    margin-bottom: 20px;
+    box-shadow: inset 0 0 10px #000;
+}
+
+.cause-step {
+    text-align: center;
+    font-size: 0.9em;
+    color: #666;
+    transition: all 0.5s;
+    opacity: 0.5;
+}
+
+.cause-step.active {
+    color: #fff;
+    opacity: 1.0;
+    text-shadow: 0 0 10px #3498db;
+    transform: scale(1.1);
+}
+
+.cause-arrow {
+    color: #444;
+    font-size: 1.2em;
+}
+
+/* Reactor Vessel Container */
+.reactor-container {
+    background: radial-gradient(circle at center, #2c3e50 0%, #000 70%);
+    border: 2px solid #555;
+    border-radius: 15px;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), inset 0 0 50px rgba(0, 0, 0, 0.5);
+    padding: 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.reactor-container::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 0, 0.03) 3px, rgba(0, 255, 0, 0.03) 3px);
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* Telemetry Value with Trend */
+.telemetry-val {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    font-size: 1.4em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.trend-up {
+    color: #e74c3c;
+    animation: blink 1s infinite;
+}
+
+.trend-down {
+    color: #3498db;
+}
+
+.trend-flat {
+    color: #7f8c8d;
+}
+
+@keyframes blink {
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Phase 6: System Tension Pulse */
+@keyframes tension-pulse {
+    0% {
+        box-shadow: 0 0 0 rgba(231, 76, 60, 0);
+        border-color: #555;
+    }
+
+    50% {
+        box-shadow: 0 0 20px rgba(231, 76, 60, 0.4);
+        border-color: #e74c3c;
+    }
+
+    100% {
+        box-shadow: 0 0 0 rgba(231, 76, 60, 0);
+        border-color: #555;
+    }
+}
+
+.tension-active {
+    animation: tension-pulse 1s infinite;
+}
+
+/* Delay Clock Badge */
+.delay-badge {
+    font-size: 0.7em;
+    background: #333;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #e67e22;
+    margin-left: 5px;
+    border: 1px solid #444;
+}
