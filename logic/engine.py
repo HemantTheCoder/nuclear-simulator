@@ -115,19 +115,22 @@ class ReactorUnit:
         self.post_mortem_report = None
         
         self.time_seconds = 0
+        self.reset() # Start in optimal state
     
     def reset(self):
-        """Restores the reactor to a safe, cold shutdown state."""
+        """Restores the reactor to an Optimal Operating State (Media Res)."""
         r_type = self.type
+        
+        # 1. OPTIMAL CONTROL STATE
         self.control_state = {
-            "rods_pos": 100.0, # Full Insert
+            "rods_pos": 80.0, # 20% Withdrawal - Running State
             "pump_speed": 100.0,
             "flow_rate_core": 100.0,
             "manual_scram": False,
             "safety_enabled": True,
             # Type specific
             # PWR
-            "boron_concentration": 1000.0 if r_type == ReactorType.PWR else 0.0,
+            "boron_concentration": 500.0 if r_type == ReactorType.PWR else 0.0, # Burned in
             "pressurizer_heaters": False,
             "pressurizer_sprays": False,
             # BWR/RBMK
@@ -138,24 +141,40 @@ class ReactorUnit:
             "eccs_active": False,
         }
         
+        # 2. OPTIMAL TELEMETRY
+        # PWR: 315C, 155 Bar
+        # BWR: 285C, 70 Bar
+        # RBMK: 280C, 65 Bar
+        
+        target_temp = 315.0
+        target_press = 155.0
+        
+        if r_type == ReactorType.BWR:
+            target_temp = 285.0
+            target_press = 70.0
+        elif r_type == ReactorType.RBMK:
+            target_temp = 280.0
+            target_press = 65.0
+            self.control_state["rods_pos"] = 70.0 # RBMK needs more withdrawal
+            
         self.telemetry = {
-            "flux": 0.001,
-            "power_mw": 0.0,
-            "temp": 300.0,
-            "pressure": 155.0 if r_type == ReactorType.PWR else 70.0, 
+            "flux": 1.0, # Full Power
+            "power_mw": 1000.0,
+            "temp": target_temp,
+            "pressure": target_press, 
             "reactivity": 0.0,
-            "period": 999.0,
+            "period": 0.0, # Stable
             "alerts": [],
             "scram": False,
             "stability_margin": 100.0,
             "health": 100.0,
-            "xenon": 0.1,  # Fresh core
-            "iodine": 0.1,
-            "void_fraction": 0.0, 
+            "xenon": 1.0,  # Equilibrium Xe
+            "iodine": 1.0,
+            "void_fraction": 0.2 if r_type in [ReactorType.BWR, ReactorType.RBMK] else 0.0, 
             # Advanced Telemetry
             "water_level": 5.0,
-            "steam_flow": 0.0,
-            "boron_ppm": 1000.0 if r_type == ReactorType.PWR else 0.0,
+            "steam_flow": 500.0,
+            "boron_ppm": 500.0 if r_type == ReactorType.PWR else 0.0,
             # RBMK specific
             "graphite_tip_position": 0.0, 
             # Catastrophic State

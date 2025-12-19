@@ -207,7 +207,7 @@ def show(navigate_func):
                 for e in report["timeline"]:
                     st.markdown(f"`T+{e['time']:.1f}s` : {e['event']}")
         
-        if st.button(f"RESET {unit.name} (COLD SHUTDOWN)"):
+        if st.button(f"RESET {unit.name} (NOMINAL)"):
              unit.reset()
              st.rerun()
         
@@ -301,7 +301,7 @@ def show(navigate_func):
                  st.error("⚠️ VENTING TO ATMOSPHERE")
             
             st.markdown("---")
-            if st.button("🔄 RESET UNIT TO INITIAL STATE"):
+            if st.button("🔄 RESET UNIT TO NOMINAL"):
                 unit.reset()
                 st.rerun()
 
