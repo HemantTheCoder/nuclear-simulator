@@ -320,7 +320,7 @@ def show(navigate_func):
     if len(data['history']) > 2:
         st.markdown("### 📈 FLIGHT RECORDER")
         df = pd.DataFrame(data['history'])
-        st.line_chart(df, x="time", y=["power", "temp"])
+        st.line_chart(df, x="time_seconds", y=["power_mw", "temp"])
     
     # Auto Run Tick
     if auto_run:

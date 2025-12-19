@@ -28,8 +28,15 @@ def show_live_reconstruction(scenario, navigate_func):
         st.session_state.replay_unit = unit
         st.session_state.current_replay_id = scenario.id
         st.session_state.replay_running = True
+        st.session_state.replay_debug = "Initialized"
 
-    unit = st.session_state.replay_unit
+    unit = st.session_state.get("replay_unit")
+    if not unit:
+        st.error("Replay unit not found in session state.")
+        if st.button("Fix & Restart"):
+            st.session_state.mode = None
+            st.rerun()
+        return
     
     with st.sidebar:
         st.markdown("### 📽️ REPLAY CONTROLS")
@@ -61,11 +68,7 @@ def show_live_reconstruction(scenario, navigate_func):
         st.markdown("---")
         sound_enabled = st.checkbox("🔊 Enable Replay Audio", value=True)
 
-    # --- SIMULATION LOOP ---
-    if st.session_state.replay_running:
-        unit.tick(1.0)
-        time.sleep(0.1) # Smoothish
-        st.rerun()
+    # --- DASHBOARD (MIRROR SIMULATOR STYLE) ---
 
     # --- DASHBOARD (MIRROR SIMULATOR STYLE) ---
     col_vis, col_data = st.columns([1.5, 1.2])
@@ -124,13 +127,25 @@ def show_live_reconstruction(scenario, navigate_func):
         
         # Graphs
         if unit.history:
-            st.markdown("---")
-            df = pd.DataFrame(unit.history)
-            fig = px.line(df, x="time_seconds", y=["power_mw", "temp"], title="Parameter Trends")
-            fig.update_layout(template="plotly_dark", height=250, margin=dict(l=10, r=10, t=30, b=10))
-            st.plotly_chart(fig, use_container_width=True)
+            try:
+                st.markdown("---")
+                df = pd.DataFrame(unit.history)
+                # Ensure columns exist before plotting
+                plot_cols = [c for c in ["power_mw", "temp"] if c in df.columns]
+                x_col = "time_seconds" if "time_seconds" in df.columns else df.columns[0]
+                fig = px.line(df, x=x_col, y=plot_cols, title="Parameter Trends")
+                fig.update_layout(template="plotly_dark", height=250, margin=dict(l=10, r=10, t=30, b=10))
+                st.plotly_chart(fig, use_container_width=True)
+            except Exception as e:
+                st.error(f"Graph Error: {str(e)}")
 
     st.markdown("---")
+
+    # --- SIMULATION LOOP ---
+    if st.session_state.get("replay_running", False):
+        unit.tick(1.0)
+        time.sleep(0.1)
+        st.rerun()
 
 def show_reconstruction(scenario, navigate_func):
     """Deep-dive static UI (Legacy/Forensic view)."""

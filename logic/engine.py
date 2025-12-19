@@ -527,10 +527,10 @@ class ReactorUnit:
         self._record_history()
 
     def _record_history(self):
-        if len(self.history) == 0 or self.time_seconds - self.history[-1]["time"] >= 1.0:
+        if len(self.history) == 0 or self.time_seconds - self.history[-1]["time_seconds"] >= 1.0:
             self.history.append({
-                "time": self.time_seconds,
-                "power": self.telemetry["power_mw"],
+                "time_seconds": self.time_seconds,
+                "power_mw": self.telemetry["power_mw"],
                 "temp": self.telemetry["temp"],
                 "reactivity": self.telemetry["reactivity"] * 10000
             })
