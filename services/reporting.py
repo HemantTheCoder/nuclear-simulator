@@ -57,7 +57,55 @@ class ReportGenerator:
         pdf.set_x(x_start)
         pdf.cell(50, 8, "Radiation Released:", border=0)
         pdf.cell(0, 8, f"{unit.telemetry.get('radiation_released', 0):.2f} Sv", ln=1)
-        pdf.ln(10)
+        pdf.ln(5)
+
+        # --- SYSTEM SPECIFICATIONS ---
+        pdf.set_font("helvetica", "B", 14)
+        pdf.cell(0, 10, "SYSTEM SPECIFICATIONS", ln=1)
+        pdf.set_font("helvetica", "", 10)
+        c = unit.config
+        
+        pdf.set_x(20)
+        pdf.cell(60, 6, "Reactor Type:", border=1)
+        pdf.cell(60, 6, f"{unit.type.value}", border=1, ln=1)
+        
+        pdf.set_x(20)
+        pdf.cell(60, 6, "Max Thermal Power:", border=1)
+        pdf.cell(60, 6, "3200 MWth", border=1, ln=1)
+        
+        pdf.set_x(20)
+        pdf.cell(60, 6, "Void Coefficient:", border=1)
+        pdf.cell(60, 6, f"{c.void_coefficient:+.3f}", border=1, ln=1)
+        
+        pdf.set_x(20)
+        pdf.cell(60, 6, "Doppler Coefficient:", border=1)
+        pdf.cell(60, 6, f"{c.doppler_coefficient:+.3f}", border=1, ln=1)
+        pdf.ln(5)
+
+        # --- SAFETY SYSTEMS ---
+        pdf.set_font("helvetica", "B", 14)
+        pdf.cell(0, 10, "SYSTEM CONFIGURATION & SAFETY", ln=1)
+        pdf.set_font("courier", "", 10)
+        
+        s_scram = "ACTIVE" if unit.telemetry.get("scram") else "READY"
+        s_eccs = "INJECTING" if unit.control_state.get("eccs_active") else "STANDBY"
+        s_cont = f"{unit.telemetry.get('containment_integrity', 100):.1f}%"
+        s_msiv = "CLOSED (ISOLATED)" if not unit.control_state.get("msiv_open", True) else "OPEN (NORMAL)"
+        s_auto = "ENGAGED" if unit.control_state.get("auto_rod_control", False) else "MANUAL"
+        s_load = f"{unit.control_state.get('turbine_load_mw', 1000):.0f} MW"
+        
+        pdf.set_x(20)
+        pdf.cell(0, 6, f"[SCRAM SYSTEM] ....... {s_scram}", ln=1)
+        pdf.set_x(20)
+        pdf.cell(0, 6, f"[ECCS PUMPS] ......... {s_eccs}", ln=1)
+        pdf.set_x(20)
+        pdf.cell(0, 6, f"[CONTAINMENT] ........ {s_cont}", ln=1)
+        pdf.set_x(20)
+        pdf.cell(0, 6, f"[MSIV STATUS] ........ {s_msiv}", ln=1)
+        pdf.set_x(20)
+        pdf.cell(0, 6, f"[ROD CONTROL] ........ {s_auto}", ln=1)
+        pdf.set_x(20)
+        pdf.cell(0, 6, f"[GRID DEMAND] ........ {s_load}", ln=1)
         pdf.ln(10)
         
         # --- CHAIN OF EVENTS ---
@@ -147,6 +195,59 @@ class ReportGenerator:
                 pdf.set_font("helvetica", "I", 10)
                 pdf.cell(0, 10, f"(Graph generation skipped: {str(e)})", ln=1)
 
+            # --- REACTIVITY BALANCE GRAPH ---
+            try:
+                # Use cached generation 
+                r_img_bytes = ReportGenerator._create_reactivity_image(df)
+                
+                if r_img_bytes:
+                    pdf.add_page()
+                    pdf.set_font("helvetica", "B", 16)
+                    pdf.cell(0, 10, "REACTIVITY BALANCE", ln=1)
+                    pdf.set_font("helvetica", "", 12)
+                    pdf.multi_cell(0, 6, "Detailed breakdown of reactivity components (Control Rods, Void, Doppler, Xenon) contributing to the net reactivity state.")
+                    
+                    import io
+                    r_img_stream = io.BytesIO(r_img_bytes)
+                    r_img_stream.name = 'temp_reactivity.png' 
+                    pdf.image(r_img_stream, x=10, y=50, w=190)
+            except Exception as e:
+                    pdf.set_font("helvetica", "I", 10)
+                    pdf.cell(0, 10, f"(Reactivity graph skipped: {str(e)})", ln=1)
+
+        # --- GLOSSARY ---
+        pdf.add_page()
+        pdf.set_font("helvetica", "B", 16)
+        pdf.cell(0, 10, "TECHNICAL REFERENCE & GLOSSARY", ln=1)
+        pdf.set_font("helvetica", "", 10)
+        
+        glossary = {
+            "Departure from Nucleate Boiling Ratio (DNBR)": 
+                "A measure of the thermal safety margin. It is the ratio of the Critical Heat Flux (heat level where bubbles form a blanket, blocking cooling) to the actual heat flux. A DNBR < 1.3 implies a high risk of fuel rod damage and melting.",
+            
+            "Void Coefficient of Reactivity": 
+                "Determines how reactor power changes when water boils into steam (voids). Negative = Self-stabilizing (Power drops as boiling increases). Positive = Instability (Power rises as boiling increases, leading to runaway).",
+            
+            "Doppler Broadening (Doppler Coefficient)": 
+                "A negative feedback mechanism where heating up the fuel makes it absorb more neutrons (due to atomic vibration), naturally dampening the nuclear reaction. This is a key inherent safety feature.",
+            
+            "Xenon Poisoning (Xenon-135)": 
+                "A fission product that absorbs neutrons, 'poisoning' the reaction. It builds up after shutdown (Xenon Pit), preventing restart for ~24 hours. Attempting to override it by pulling control rods is dangerous.",
+                
+            "Tip Effect (Positive Scram)":
+                "A design flaw in RBMK reactors where control rods have graphite displacers at the tips. When inserting rods to shut down, the graphite tip initially adds reactivity, potentially causing a power spike before shutdown.",
+                
+            "Main Steam Isolation Valve (MSIV)":
+                "Safety valves that isolate the reactor from the turbine hall. Closing them while the reactor is at power causes a rapid pressure spike, necessitating the use of bypass valves or safety relief valves."
+        }
+        
+        for term, desc in glossary.items():
+            pdf.ln(5)
+            pdf.set_font("helvetica", "B", 11)
+            pdf.cell(0, 6, term, ln=1)
+            pdf.set_font("helvetica", "", 10)
+            pdf.multi_cell(0, 5, desc)
+
         # Output to buffer (Return bytes)
         pdf_bytes = pdf.output(dest='S')
         if isinstance(pdf_bytes, (bytes, bytearray)):
@@ -184,4 +285,31 @@ class ReportGenerator:
         
         # Return as bytes
         # engine='kaleido' is required for static image export
+        return fig.to_image(format="png", engine="kaleido")
+
+    @staticmethod
+    @st.cache_data(show_spinner=False, ttl=60)
+    def _create_reactivity_image(df):
+        """Creates a detailed reactivity balance graph."""
+        if df.empty or 'rho_void' not in df.columns: return None
+        fig = go.Figure()
+        
+        comps = ["rho_void", "rho_doppler", "rho_xenon", "rho_rods"]
+        colors = {"rho_void": "#e74c3c", "rho_doppler": "#3498db", "rho_xenon": "#9b59b6", "rho_rods": "#95a5a6"}
+        
+        for c in comps:
+             if c in df.columns:
+                 fig.add_trace(go.Scatter(
+                    x=df['time_seconds'], y=df[c], name=c.replace("rho_", "").title(),
+                    line=dict(color=colors.get(c, "#fff"), width=2)
+                ))
+        
+        if 'reactivity' in df.columns:
+            fig.add_trace(go.Scatter(x=df['time_seconds'], y=df['reactivity'], name="NET TOTAL", line=dict(color="white", width=4, dash='dot')))
+
+        fig.update_layout(
+            template="plotly_dark", title="Reactivity Balance (PCM)",
+            xaxis_title="Time (s)", yaxis_title="Reactivity (pcm)",
+            margin=dict(l=20, r=20, t=40, b=20), height=400, width=800
+        )
         return fig.to_image(format="png", engine="kaleido")

@@ -5,6 +5,7 @@ import time
 from datetime import datetime
 from logic.engine import ReactorEngine, ReactorType
 from logic.visuals import VisualGenerator
+from logic.instructor import Instructor
 from views.components.audio import render_audio_engine
 from views.components.ui import render_annunciator_panel, render_event_log
 from services.reporting import ReportGenerator
@@ -98,6 +99,15 @@ def show(navigate_func):
     col_vis, col_ctrl = st.columns([1.5, 1.2])
     
     with col_vis:
+        # Instructor
+        msgs = Instructor.analyze(unit)
+        if msgs:
+            with st.expander("👨‍🏫 INSTRUCTOR REMARKS", expanded=True):
+                for m in msgs:
+                    if m["type"] == "danger": st.error(m["msg"])
+                    elif m["type"] == "warning": st.warning(m["msg"])
+                    else: st.info(m["msg"])
+
         st.markdown("### CORE STATUS")
         render_annunciator_panel(telemetry)
         
@@ -108,29 +118,51 @@ def show(navigate_func):
         render_event_log(unit.event_log)
         
         # SVG Visual
-        svg = VisualGenerator.get_reactor_svg({
-            "type": r_type,
-            "temp": telemetry["temp"],
-            "flux": telemetry["flux"],
-            "rods_pos": controls["rods_pos"],
-            "void_fraction": telemetry.get("void_fraction", 0.0),
-            "scram": telemetry.get("scram", False),
-            "melted": telemetry.get("melted", False)
-        })
+        svg_context = telemetry.copy()
+        svg_context.update(controls)
+        svg_context["type"] = r_type
+        svg_context["melted"] = telemetry.get("melted", False)
+        
+        svg = VisualGenerator.get_reactor_svg(svg_context)
         b64_svg = base64.b64encode(svg.encode('utf-8')).decode("utf-8")
         st.markdown(f'<div style="text-align:center"><img src="data:image/svg+xml;base64,{b64_svg}" style="width:100%; max-height:400px;"></div>', unsafe_allow_html=True)
 
         # Telemetry Ribbon
-        m1, m2, m3, m4 = st.columns(4)
+        m1, m2, m3, m4, m5 = st.columns(5)
         m1.metric("Pwr", f"{telemetry['power_mw']:.0f} MW")
         m2.metric("Temp", f"{telemetry['temp']:.0f} °C")
         m3.metric("Press", f"{telemetry.get('pressure',0):.1f} Bar")
         m4.metric("Lvl", f"{telemetry.get('water_level',5):.1f} m")
+        m5.metric("Load", f"{controls.get('turbine_load_mw', 1000.0):.0f} MW")
         
         # Radiation Monitor
         rads = telemetry.get('radiation_released', 0)
         if rads > 0:
             st.metric("☢️ RAD RELEASE", f"{rads:.2f} Sv", delta_color="inverse")
+
+        with st.expander("🛠️ TECHNICAL ANALYSIS (NEUTRONICS)", expanded=False):
+            rc = telemetry.get("reactivity_components", {})
+            c_rho1, c_rho2, c_rho3, c_rho4 = st.columns(4)
+            c_rho1.metric("Net Rho", f"{telemetry['reactivity']*10000:.0f} pcm")
+            c_rho2.metric("Rod Worth", f"{rc.get('rods',0)*10000:.0f} pcm")
+            c_rho3.metric("Void Coeff", f"{rc.get('void',0)*10000:.0f} pcm")
+            c_rho4.metric("Doppler", f"{rc.get('doppler',0)*10000:.0f} pcm")
+            
+            c_rho5, c_rho6, c_rho7 = st.columns(3)
+            c_rho5.metric("Xenon Poison", f"{rc.get('xenon',0)*10000:.0f} pcm")
+            c_rho6.metric("Boron Poison", f"{rc.get('boron',0)*10000:.0f} pcm")
+            c_rho7.metric("Period", f"{telemetry.get('period', 999):.1f} s")
+            
+            st.divider()
+            st.caption("🌊 THERMAL HYDRAULICS & SAFETY MARGINS")
+            c_th1, c_th2, c_th3, c_th4 = st.columns(4)
+            c_th1.metric("Mass Flow", f"{telemetry.get('mass_flow', 0)/1000.0:.1f} t/s")
+            c_th2.metric("T-Inlet", f"{telemetry.get('t_inlet', 0):.1f} °C")
+            c_th3.metric("T-Outlet", f"{telemetry.get('t_outlet', 0):.1f} °C")
+            
+            dnbr = telemetry.get('dnbr', 99.9)
+            dnbr_delta = "CRITICAL" if dnbr < 1.3 else "SAFE"
+            c_th4.metric("DNBR", f"{dnbr:.2f}", delta=dnbr_delta, delta_color="normal" if dnbr > 1.3 else "inverse")
 
 
     # CHECK FOR DEATH
@@ -188,12 +220,25 @@ def show(navigate_func):
             # CORE CONTROLS
             # 1. Rods
             st.markdown("**REACTIVITY CONTROL**")
+            col_r1, col_r2 = st.columns([2, 1])
             rod_label = "Control Rods Insertion"
-            new_controls["rods_pos"] = st.slider(rod_label, 0.0, 100.0, controls["rods_pos"], key="rod_slider")
+            new_controls["rods_pos"] = col_r1.slider(rod_label, 0.0, 100.0, controls["rods_pos"], key="rod_slider")
+            
+            new_controls["auto_rod_control"] = col_r2.toggle("AUTO PILOT", value=controls.get("auto_rod_control", False))
+            if new_controls["auto_rod_control"]:
+                 st.caption("🤖 Maintaining Load")
             
             # 2. Flow/Cooling
             st.markdown("**COOLANT SYSTEM**")
             new_controls["pump_speed"] = st.slider("Main Pump Speed (%)", 0.0, 100.0, controls["pump_speed"], key="pump_slider")
+
+            # 2.5 Turbine Logic
+            st.markdown("**TURBINE & STEAM**")
+            new_controls["turbine_load_mw"] = st.slider("Turbine Load Demand (MW)", 0.0, 3500.0, controls.get("turbine_load_mw", 1000.0))
+            new_controls["msiv_open"] = st.toggle("MSIV (Main Steam Isolation Valves)", value=controls.get("msiv_open", True))
+            
+            if not new_controls["msiv_open"]:
+                st.error("⚠️ STEAM ISOLATED - PRESSURE SPIKE IMMINENT")
             
             # 3. Type Specific
             st.markdown("**SYSTEM CONFIG**")

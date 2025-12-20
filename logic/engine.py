@@ -79,6 +79,10 @@ class ReactorUnit:
             # Emergency
             "manual_vent": False, 
             "eccs_active": False,
+            # Advanced
+            "turbine_load_mw": 1000.0,
+            "msiv_open": True, 
+            "auto_rod_control": False,
         }
         
         self.telemetry = {
@@ -139,6 +143,10 @@ class ReactorUnit:
             # Emergency
             "manual_vent": False, 
             "eccs_active": False,
+            # Advanced
+            "turbine_load_mw": 1000.0,
+            "msiv_open": True,
+            "auto_rod_control": False,
         }
         
         # 2. OPTIMAL TELEMETRY
@@ -268,6 +276,18 @@ class ReactorUnit:
         conf = self.config
         
         # --- 0. Control Response & Mechanics ---
+        
+        # A. Auto-Rod Control (PID Lite)
+        if c.get("auto_rod_control", False) and not c["manual_scram"]:
+            # Target is Turbine Load (follow the grid)
+            target_p = c.get("turbine_load_mw", 1000.0)
+            err = target_p - t["power_mw"]
+            # If power is low, pull rods (decrease pos). If high, insert (increase pos).
+            # Gain needs to be small to avoid oscillation
+            rod_speed = -0.01 * err * dt # Neg because Lower Pos = Higher Power
+            c["rods_pos"] = max(0.0, min(100.0, c["rods_pos"] + rod_speed))
+
+        # Flow Logic & Water Inventory
         # Flow Logic & Water Inventory
         # Mass Balance: dM/dt = Feedwater - SteamFlow
         # Level approx M
@@ -304,6 +324,15 @@ class ReactorUnit:
             # Inertia
             t["pressure"] += (p_target - t["pressure"]) * 0.1 * dt
             
+        # MSIV & Pressure buildup (BWR/RBMK mostly, but affects PWR SG too)
+        # If MSIV Closed and Bypass Closed, Steam has nowhere to go.
+        if not c.get("msiv_open", True) and c.get("turbine_bypass", 0) < 1.0:
+            # Pressure spike
+            t["pressure"] += 2.0 * dt
+            if t["pressure"] > 300: 
+                 self.safety.alerts.append("MSIV OVERPRESSURE")
+                 t["health"] -= 1.0 * dt
+
         # Emergency Venting
         if c.get("manual_vent", False) and t["pressure"] > 5.0:
             vent_rate = 50.0 # Bar/s
@@ -390,13 +419,34 @@ class ReactorUnit:
         
         total_feedback = feedback_void + feedback_doppler + feedback_xenon + tip_reactivity + disturbances + boron_reactivity
         
+        # Store components for advanced analysis/charts
+        t["reactivity_components"] = {
+            "void": feedback_void,
+            "doppler": feedback_doppler,
+            "xenon": feedback_xenon,
+            "rods": self.physics.reactivity - (feedback_void + feedback_doppler + feedback_xenon + disturbances), # infer rod contribution? 
+            # Actually self.physics.reactivity is total. Rod worth is handled inside physics.update usually.
+            # Let's check physics layer. Assuming physics.update returns flux, but sets self.physics.reactivity.
+            # If ReactivityLayer logic is hidden, we might need to be careful.
+            # BUT, we have `eff_rods`. 
+            # Let's just log the explicit feedbacks we know.
+            "boron": boron_reactivity,
+            "total": total_feedback
+        }
+        
         # Physics update
         # Pass total_feedback as extra_k
         current_flux = self.physics.update(eff_rods, t["temp"], extra_k=total_feedback, dt=dt)
         
-        # Update period from physics layer
+        # Rod worth is implicit in physics.reactivity (Total) - total_feedback (External).
+        # So t["reactivity_components"]["rods"] = self.physics.reactivity - total_feedback
+        # We'll set this 'rods' component AFTER physics.update lines.
+
+        # ... (lines 397-400)
         t["period"] = self.physics.period
         t["reactivity"] = self.physics.reactivity
+        
+        t["reactivity_components"]["rods"] = t["reactivity"] - total_feedback
         
         # Apply visual jitter to flux
         t["flux"] = max(0, current_flux)
@@ -411,10 +461,57 @@ class ReactorUnit:
         # Heat transfer
         # Q_gen - Q_removed = M*Cp*dT/dt
         q_gen = t["power_mw"]
-        q_removed = (t["temp"] - 20) * 10.0 * cooling_factor # Simple UA*(T-Tsink)
+        
+        # Heat Sink Logic (Grid Demand + Bypass)
+        sink_mw = c.get("turbine_load_mw", 1000.0) if c.get("msiv_open", True) else 0.0
+        sink_mw += c.get("turbine_bypass", 0.0) * 32.0 # 100% bypass = 3200MW
+        
+        # Physical Transfer Capacity
+        q_removed_physical = (t["temp"] - 20) * 10.0 * cooling_factor 
+        
+        # Actual removal is limited by physical capacity, but also affected by sink demand.
+        # If Sink < Physical, the return water is hotter, reducing Q_removed.
+        # We simulate this by clamping Q_removed to Sink (plus some inertia).
+        # But we must ensure Q_removed doesn't exceed physical limits.
+        q_removed = min(q_removed_physical, sink_mw)
+        
+        # Fallback: Natural losses (losses to ambient)
+        q_removed = max(q_removed, q_removed_physical * 0.05) 
         
         delta_temp = (q_gen - q_removed) * 0.05 * (dt / conf.thermal_inertia)
         t["temp"] += delta_temp
+        
+        # --- Advanced Thermal Hydraulics (NEW) ---
+        # 1. Mass Flow
+        # Natural Circulation ~ 5% flow
+        flow_max = 18000.0 # kg/s
+        pump_ratio = c.get("pump_speed", 100.0) / 100.0
+        mass_flow = flow_max * max(0.05, pump_ratio) 
+        
+        # 2. Inlet/Outlet Temps (Calorimetric)
+        # Q = m * Cp * dT  => dT = Q / (m * Cp)
+        # Cp Water ~ 4200 J/kgK
+        # Power MW -> Watts
+        if t["power_mw"] > 0:
+            delta_t_core = (t["power_mw"] * 1e6) / (mass_flow * 4200.0)
+        else:
+            delta_t_core = 0.0
+            
+        t["t_inlet"] = t["temp"] - (delta_t_core / 2.0)
+        t["t_outlet"] = t["temp"] + (delta_t_core / 2.0)
+        t["mass_flow"] = mass_flow
+        t["flow_rate_core"] = (mass_flow / flow_max) * 100.0 # For visuals
+        
+        # 3. DNBR (Departure from Nucleate Boiling Ratio)
+        # Critical Heat Flux margin. < 1.3 is dangerous.
+        # Simplified correlation: DNB drops if Power High, Flow Low, Pressure Low.
+        power_ratio = max(0.01, t["power_mw"] / 3200.0)
+        flow_ratio = mass_flow / flow_max
+        pressure_factor = min(1.5, max(0.5, t["pressure"] / 155.0))
+        
+        # Base CHF margin around 4.0 at nominal
+        dnbr_est = 3.5 * (flow_ratio / power_ratio) * pressure_factor
+        t["dnbr"] = min(99.9, dnbr_est)
         
         # --- 4. Health & Safety ---
         t["scram"] = is_scrammed
@@ -537,11 +634,16 @@ class ReactorUnit:
 
     def _record_history(self):
         if len(self.history) == 0 or self.time_seconds - self.history[-1]["time_seconds"] >= 1.0:
+            comps = self.telemetry.get("reactivity_components", {})
             self.history.append({
                 "time_seconds": self.time_seconds,
                 "power_mw": self.telemetry["power_mw"],
                 "temp": self.telemetry["temp"],
-                "reactivity": self.telemetry["reactivity"] * 10000
+                "reactivity": self.telemetry["reactivity"] * 10000,
+                "rho_rods": comps.get("rods", 0.0) * 10000,
+                "rho_void": comps.get("void", 0.0) * 10000,
+                "rho_doppler": comps.get("doppler", 0.0) * 10000,
+                "rho_xenon": comps.get("xenon", 0.0) * 10000
             })
             if len(self.history) > 100: self.history.pop(0)
 
