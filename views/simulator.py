@@ -8,11 +8,88 @@ from logic.visuals import VisualGenerator
 from logic.instructor import Instructor
 from views.components.audio import render_audio_engine
 from views.components.ui import render_annunciator_panel, render_event_log
-from services.reporting import ReportGenerator
+from services.reporting import ReportGenerator, generate_operator_manual_pdf
+from services.manual_content import MANUAL_CONTENT
+
+def render_onboarding_wizard():
+    """Renders the Operator Manual Onboarding Overlay."""
+    st.markdown("## ☢️ Reactor Operator Training")
+    st.info("Please review the safety protocols and operating procedures before taking control.")
+    
+    tabs = st.tabs(["🚀 Mission Brief", "🔵 PWR Manual", "🌊 BWR Manual", "☢️ RBMK Manual"])
+    
+    with tabs[0]:
+        st.markdown(MANUAL_CONTENT["intro"]["body"])
+        
+    with tabs[1]:
+        c = MANUAL_CONTENT["pwr"]
+        st.subheader(c["title"])
+        st.markdown(c["desc"])
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("### Specifications")
+            st.markdown(c["specs"])
+        with col2:
+            st.markdown("### Safety Limits")
+            st.error(c["limits"])
+            st.markdown(c["tips"])
+
+    with tabs[2]:
+        c = MANUAL_CONTENT["bwr"]
+        st.subheader(c["title"])
+        st.markdown(c["desc"])
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("### Specifications")
+            st.markdown(c["specs"])
+        with col2:
+            st.markdown("### Safety Limits")
+            st.error(c["limits"])
+            st.markdown(c["tips"])
+
+    with tabs[3]:
+        c = MANUAL_CONTENT["rbmk"]
+        st.subheader(c["title"])
+        st.markdown(c["desc"])
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("### Specifications")
+            st.markdown(c["specs"])
+        with col2:
+            st.markdown("### Safety Limits")
+            st.error(c["limits"])
+            st.markdown(c["tips"])
+            
+    st.markdown("---")
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        # PDF Gen
+        pdf_data = generate_operator_manual_pdf(MANUAL_CONTENT)
+        st.download_button(
+            label="📄 Download Operator Manual (PDF)",
+            data=pdf_data,
+            file_name="Operator_Manual.pdf",
+            mime="application/pdf",
+        )
+        
+    with col2:
+        if st.button("✅ I HAVE READ THE MANUAL - INITIALIZE SYSTEMS", type="primary", use_container_width=True):
+            st.session_state["onboarding_complete"] = True
+            st.rerun()
 
 # Removed render_annunciator_panel (moved to views.components.ui)
 
 def show(navigate_func):
+    # 0. Onboarding Check
+    if "onboarding_complete" not in st.session_state:
+        st.session_state["onboarding_complete"] = False
+        
+    # If not onboarded, show wizard AND STOP
+    if not st.session_state["onboarding_complete"]:
+        render_onboarding_wizard()
+        return
+
     # --- 1. Init Reactor Engine (Handled globally in app.py) ---
     engine = st.session_state.get('engine')
     if not engine:
@@ -91,6 +168,10 @@ def show(navigate_func):
             - **BWR**: Temp < 300°C | Press < 90 Bar
             - **RBMK**: Temp < 300°C | Press < 90 Bar | Voids < 40%
             """)
+            
+            if st.button("Reset Training (Show Onboarding)"):
+                st.session_state["onboarding_complete"] = False
+                st.rerun()
 
     # --- 4. MAIN DASHBOARD ---
     selected_id = st.session_state.selected_container

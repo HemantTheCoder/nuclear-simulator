@@ -399,3 +399,57 @@ class ReportGenerator:
                 return buf.getvalue()
         except Exception as e:
             return None
+
+def generate_operator_manual_pdf(content_dict):
+    """Generates the Operator Manual PDF using ReportLab."""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    styles = getSampleStyleSheet()
+    
+    # Custom Styles
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=24, spaceAfter=20)
+    h2_style = ParagraphStyle('H2', parent=styles['Heading2'], fontSize=16, spaceBefore=15, spaceAfter=10, textColor=colors.darkblue)
+    body_style = ParagraphStyle('Body', parent=styles['Normal'], fontSize=11, leading=14, spaceAfter=10)
+    
+    flowables = []
+    
+    # Title
+    flowables.append(Paragraph("NUCLEAR REACTOR OPERATOR MANUAL", title_style))
+    flowables.append(Paragraph("Space Science Project Simulation", styles['Normal']))
+    flowables.append(Spacer(1, 20))
+    
+    # Iterate through sections in order
+    sections = ["intro", "pwr", "bwr", "rbmk"]
+    
+    for key in sections:
+        section = content_dict.get(key)
+        if not section: continue
+        
+        # Header
+        flowables.append(Paragraph(section["title"], h2_style))
+        
+        # Body (markdown-ish cleaning)
+        if "body" in section:
+            text = section["body"].replace("**", "<b>").replace("**", "</b>").replace("\n", "<br/>") # Simplified formatting
+            flowables.append(Paragraph(text, body_style))
+            
+        if "desc" in section:
+            flowables.append(Paragraph(f"<b>Description:</b> {section['desc']}", body_style))
+            
+        if "specs" in section:
+            text = section["specs"].replace("**", "<b>").replace("**", "</b>").replace("\n", "<br/>")
+            flowables.append(Paragraph(text, body_style))
+            
+        if "limits" in section:
+            text = section["limits"].replace("**", "<b>").replace("**", "</b>").replace("\n", "<br/>")
+            flowables.append(Paragraph(text, body_style))
+            
+        if "tips" in section:
+            text = section["tips"].replace("**", "<b>").replace("**", "</b>").replace("\n", "<br/>")
+            flowables.append(Paragraph(text, body_style))
+            
+        flowables.append(PageBreak())
+        
+    doc.build(flowables)
+    buffer.seek(0)
+    return buffer.getvalue()
