@@ -40,11 +40,11 @@ def navigate_to(page):
     st.rerun()
 
 # Module Imports
-views_landing = importlib.import_module("views.landing")
-views_simulator = importlib.import_module("views.simulator")
-views_incidents = importlib.import_module("views.incidents")
-views_replay = importlib.import_module("views.replay")
-views_analytics = importlib.import_module("views.analytics")
+import views.landing as views_landing
+import views.simulator as views_simulator
+import views.incidents as views_incidents
+import views.replay as views_replay
+import views.analytics as views_analytics
 
 # Logic for SIDEBAR (Global Navigation)
 with st.sidebar:

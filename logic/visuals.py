@@ -1,4 +1,4 @@
-from logic.engine import ReactorType # Needed for enum matching if we used objects, but here we use string matching from telemetry
+# from logic.engine import ReactorType # Removed to break potential cycle
 
 class VisualGenerator:
     @staticmethod
