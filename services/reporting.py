@@ -1,6 +1,7 @@
 import pandas as pd
 import io
 import os
+import re
 import streamlit as st
 from fpdf import FPDF
 import matplotlib.pyplot as plt
@@ -425,6 +426,13 @@ def generate_operator_manual_pdf(content_dict):
     # Iterate through sections in order
     sections = ["intro", "pwr", "bwr", "rbmk"]
     
+    # Helper for markdown cleaning
+    def clean_md(text):
+        if not text: return ""
+        # Replace **bold** with <b>bold</b> using regex to handle pairs correctly
+        text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
+        return text.replace("\n", "<br/>")
+
     for key in sections:
         section = content_dict.get(key)
         if not section: continue
@@ -432,25 +440,23 @@ def generate_operator_manual_pdf(content_dict):
         # Header
         flowables.append(Paragraph(section["title"], h2_style))
         
-        # Body (markdown-ish cleaning)
+        # Body
         if "body" in section:
-            text = section["body"].replace("**", "<b>").replace("**", "</b>").replace("\n", "<br/>") # Simplified formatting
-            flowables.append(Paragraph(text, body_style))
+            flowables.append(Paragraph(clean_md(section["body"]), body_style))
             
         if "desc" in section:
-            flowables.append(Paragraph(f"<b>Description:</b> {section['desc']}", body_style))
+            # Manually bolt description
+            desc_text = f"<b>Description:</b> {section['desc']}"
+            flowables.append(Paragraph(desc_text, body_style))
             
         if "specs" in section:
-            text = section["specs"].replace("**", "<b>").replace("**", "</b>").replace("\n", "<br/>")
-            flowables.append(Paragraph(text, body_style))
+            flowables.append(Paragraph(clean_md(section["specs"]), body_style))
             
         if "limits" in section:
-            text = section["limits"].replace("**", "<b>").replace("**", "</b>").replace("\n", "<br/>")
-            flowables.append(Paragraph(text, body_style))
+            flowables.append(Paragraph(clean_md(section["limits"]), body_style))
             
         if "tips" in section:
-            text = section["tips"].replace("**", "<b>").replace("**", "</b>").replace("\n", "<br/>")
-            flowables.append(Paragraph(text, body_style))
+            flowables.append(Paragraph(clean_md(section["tips"]), body_style))
             
         flowables.append(PageBreak())
         
