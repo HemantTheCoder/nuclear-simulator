@@ -55,9 +55,9 @@ with st.sidebar:
             <a href="https://www.linkedin.com/in/jaidev-joya-0a5690284/" target="_blank" style="color: #ffcc00; text-decoration: none;">Jaidev Joya</a>
         </div>
     """, unsafe_allow_html=True)
-    if st.button("Control Room", use_container_width=True): navigate_to("simulator")
-    if st.button("Incident Library", use_container_width=True): navigate_to("incidents")
-    if st.button("Analytics & Logs", use_container_width=True): navigate_to("analytics")
+    if st.button("Control Room", width='stretch'): navigate_to("simulator")
+    if st.button("Incident Library", width='stretch'): navigate_to("incidents")
+    if st.button("Analytics & Logs", width='stretch'): navigate_to("analytics")
     
     st.markdown("---")
     st.caption("Active Session: " + st.session_state.page.upper())

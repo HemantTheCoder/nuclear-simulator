@@ -44,11 +44,11 @@ def show(navigate_func):
             if telemetry['scram']: status_color = "⚫"
             
             label = f"{status_color} {data['name']}"
-            if st.button(label, key=f"sel_{u_id}", use_container_width=True, type="primary" if is_selected else "secondary"):
+            if st.button(label, key=f"sel_{u_id}", width='stretch', type="primary" if is_selected else "secondary"):
                 st.session_state.selected_container = u_id
                 st.rerun()
 
-    if st.button("🔄 RESTORE ORIGINAL TRAINING FLEET", use_container_width=True):
+    if st.button("🔄 RESTORE ORIGINAL TRAINING FLEET", width='stretch'):
         engine.reinitialize_fleet()
         st.session_state.selected_container = "A"
         st.rerun()
@@ -199,7 +199,7 @@ def show(navigate_func):
                 data=pdf_data,
                 file_name=f"ACCIDENT_REPORT_{unit.name}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
                 mime="application/pdf",
-                use_container_width=True
+                width='stretch'
             )
         
         return # STOP RENDERING CONTROLS
@@ -214,7 +214,7 @@ def show(navigate_func):
             
             # SCRAM BUTTON
             btn_label = "AZ-5 (SCRAM)" if r_type == "RBMK" else "MANUAL SCRAM"
-            if st.button(btn_label, type="primary", use_container_width=True):
+            if st.button(btn_label, type="primary", width='stretch'):
                 new_controls["manual_scram"] = True
                 engine.update_controls(selected_id, new_controls)
                 st.rerun()
@@ -321,7 +321,7 @@ def show(navigate_func):
                     data=pdf_data,
                     file_name=f"SESSION_{unit.name}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
                     mime="application/pdf",
-                    use_container_width=True
+                    width='stretch'
                 )
 
             if new_controls != controls:

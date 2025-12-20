@@ -46,22 +46,22 @@ def show_live_reconstruction(scenario, navigate_func):
         st.info(f"Scenario: {scenario.title}")
         
         # --- CONTROLS ---
-        if st.button("▶ PLAY" if not st.session_state.replay_running else "⏸ PAUSE", use_container_width=True):
+        if st.button("▶ PLAY" if not st.session_state.replay_running else "⏸ PAUSE", width='stretch'):
             st.session_state.replay_running = not st.session_state.replay_running
             
-        if st.button("🔄 RESTART", use_container_width=True):
+        if st.button("🔄 RESTART", width='stretch'):
             unit.time_seconds = 0
             unit.event_log = []
             st.rerun()
 
-        if st.button("🛑 STOP REPLAY", use_container_width=True):
+        if st.button("🛑 STOP REPLAY", width='stretch'):
             st.session_state.selected_incident = None
             st.session_state.replay_unit = None
             st.session_state.mode = None
             st.rerun()
 
         st.markdown("---")
-        if st.button("⚡ TAKE CONTROL", type="primary", use_container_width=True):
+        if st.button("⚡ TAKE CONTROL", type="primary", width='stretch'):
             # Hand over this unit to the main simulator
             unit.is_replay = False
             # Break the engine's global scenario bond so it doesn't try to override Unit A
@@ -141,7 +141,7 @@ def show_live_reconstruction(scenario, navigate_func):
                 x_col = "time_seconds" if "time_seconds" in df.columns else df.columns[0]
                 fig = px.line(df, x=x_col, y=plot_cols, title="Parameter Trends")
                 fig.update_layout(template="plotly_dark", height=250, margin=dict(l=10, r=10, t=30, b=10))
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
             except Exception as e:
                 st.error(f"Graph Error: {str(e)}")
 
@@ -158,7 +158,7 @@ def show_reconstruction(scenario, navigate_func):
     """Deep-dive static UI (Legacy/Forensic view)."""
     st.markdown(f"## 🕵️ FORENSIC RECONSTRUCTION: {scenario.title}")
     
-    if st.button("🚀 START LIVE RE-SIMULATION", type="primary", use_container_width=True):
+    if st.button("🚀 START LIVE RE-SIMULATION", type="primary", width='stretch'):
         st.session_state.mode = "live_replay"
         st.rerun()
 
@@ -187,7 +187,7 @@ def show_reconstruction(scenario, navigate_func):
         df = pd.DataFrame(history)
         fig = px.line(df, x="time_seconds", y=["power_mw", "temp"], title="Historical Event Sequence")
         fig.update_layout(template="plotly_dark", height=400)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
         
         st.markdown("### ☢️ FINAL CONSEQUENCES")
         last_phase = scenario.phases[-1]
@@ -229,7 +229,7 @@ def show_reconstruction(scenario, navigate_func):
             data=pdf_data,
             file_name=f"HIS_REPORT_{scenario.id}.pdf",
             mime="application/pdf",
-            use_container_width=True
+            width='stretch'
         )
 
     if st.button("⬅ BACK TO LIBRARY"):

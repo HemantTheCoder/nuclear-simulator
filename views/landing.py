@@ -61,7 +61,7 @@ def show(navigate_func):
         st.markdown("<br>", unsafe_allow_html=True)
         
         if st.checkbox("I acknowledge that this is an educational simulation.", value=False):
-            if st.button("INITIALIZE SYSTEMS ☢️", type="primary", use_container_width=True):
+            if st.button("INITIALIZE SYSTEMS ☢️", type="primary", width='stretch'):
                 navigate_func('simulator')
     
     with c_hero_2:

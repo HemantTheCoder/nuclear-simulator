@@ -83,7 +83,7 @@ def show(navigate_func):
         
         c_ctrl1, c_ctrl2 = st.columns(2)
         with c_ctrl1:
-             if st.button("⏯ PLAY / PAUSE", type="primary", use_container_width=True):
+             if st.button("⏯ PLAY / PAUSE", type="primary", width='stretch'):
                  # Simple toggle logic for auto-run could go here
                  st.session_state.replay_playing = not st.session_state.get('replay_playing', False)
                  st.rerun()
