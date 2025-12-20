@@ -3,7 +3,7 @@ import io
 import os
 import streamlit as st
 from fpdf import FPDF
-import plotly.graph_objects as go
+import matplotlib.pyplot as plt
 from datetime import datetime
 
 class ReportGenerator:
@@ -169,6 +169,59 @@ class ReportGenerator:
                 
                 pdf.multi_cell(width_avail, 8, t_msg)
 
+        # --- DETAILED EVENT LOG ---
+        if hasattr(unit, 'event_log') and unit.event_log:
+             pdf.ln(5)
+             pdf.set_font("helvetica", "B", 12)
+             pdf.cell(0, 8, "DETAILED EVENT LOG", ln=1)
+             pdf.set_font("courier", "", 8)
+             
+             # Print all events (User requested "full")
+             for e in unit.event_log:
+                 ts = e.get("timestamp", 0)
+                 # Handle float timestamp or datetime object if needed, usually float
+                 try:
+                     timestamp = datetime.fromtimestamp(ts).strftime("%H:%M:%S") if isinstance(ts, (int, float)) else str(ts)
+                 except: timestamp = "00:00:00"
+                     
+                 msg = f"[{timestamp}] {e.get('message', '')}"
+                 pdf.multi_cell(0, 4, msg)
+        
+        # --- FULL TELEMETRY SNAPSHOT ---
+        pdf.add_page()
+        pdf.set_font("helvetica", "B", 14)
+        pdf.cell(0, 10, "FULL TELEMETRY SNAPSHOT (End State)", ln=1)
+        pdf.set_font("courier", "", 9)
+        
+        final_telemetry = unit.telemetry
+        
+        # Flatten telemetry for printing
+        flat_telemetry = {}
+        for k, v in final_telemetry.items():
+            if isinstance(v, dict):
+                for sub_k, sub_v in v.items():
+                    flat_telemetry[f"{k}.{sub_k}"] = sub_v
+            else:
+                flat_telemetry[k] = v
+                
+        # Print 2 columns
+        keys = sorted([k for k in flat_telemetry.keys() if not isinstance(flat_telemetry[k], (list, dict))])
+        
+        col_width = 95
+        for i in range(0, len(keys), 2):
+            k1 = keys[i]
+            val1 = flat_telemetry[k1]
+            txt1 = f"{k1}: {val1:.4f}" if isinstance(val1, float) else f"{k1}: {val1}"
+            
+            txt2 = ""
+            if i+1 < len(keys):
+                k2 = keys[i+1]
+                val2 = flat_telemetry[k2]
+                txt2 = f"{k2}: {val2:.4f}" if isinstance(val2, float) else f"{k2}: {val2}"
+            
+            pdf.cell(col_width, 5, txt1[:55]) # Truncate if too long
+            pdf.cell(col_width, 5, txt2[:55], ln=1)
+
         # --- GRAPHS ---
         if session_history:
             pdf.add_page()
@@ -257,59 +310,90 @@ class ReportGenerator:
     @staticmethod
     @st.cache_data(show_spinner=False, ttl=60)
     def _create_trend_image(df):
-        """Creates a static graph image for PDF inclusion."""
+        """Creates a static graph image using Matplotlib (Thread-safe, file-safe)."""
         if df.empty: return None
-        fig = go.Figure()
         
-        # Color palette
-        colors = {"power_mw": "#1f77b4", "temp": "#d62728", "pressure": "#ff7f0e"}
-        
-        for col in ["power_mw", "temp", "pressure"]:
-            if col in df.columns:
-                fig.add_trace(go.Scatter(
-                    x=df['time_seconds'] if 'time_seconds' in df.columns else df.index, 
-                    y=df[col], 
-                    name=col.upper(),
-                    line=dict(color=colors.get(col, "#888888"), width=2)
-                ))
-        
-        fig.update_layout(
-            template="plotly_dark",
-            title="Session Telemetry",
-            xaxis_title="Time (s)",
-            yaxis_title="Value",
-            margin=dict(l=20, r=20, t=40, b=20),
-            height=400,
-            width=800
-        )
-        
-        # Return as bytes
-        # engine='kaleido' is required for static image export
-        return fig.to_image(format="png", engine="kaleido")
+        try:
+            # Use a non-interactive backend to avoiding threading issues
+            plt.switch_backend('Agg') 
+            
+            # Setup Figure with Dark Theme context (if available, otherwise manual cols)
+            with plt.style.context('dark_background'):
+                fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+                
+                t = df['time_seconds'] if 'time_seconds' in df.columns else df.index
+                
+                # Subplot 1: Power & Load
+                ax1.plot(t, df['power_mw'], label='Reactor Power (MW)', color='#3498db', linewidth=2)
+                if 'turbine_load_mw' in df.columns:
+                     ax1.plot(t, df['turbine_load_mw'], label='Turbine Load (MW)', color='#f1c40f', linestyle='--', linewidth=1.5)
+                ax1.set_ylabel("Power (MW)")
+                ax1.set_title("Operational Trends")
+                ax1.grid(True, alpha=0.3)
+                ax1.legend(loc='upper right')
+                
+                # Subplot 2: Thermal Hydraulics
+                ax2.plot(t, df['temp'], label='Core Temp (°C)', color='#e74c3c', linewidth=2)
+                if 't_inlet' in df.columns:
+                     ax2.plot(t, df['t_inlet'], label='T-Inlet', color='#c0392b', linestyle=':', alpha=0.7)
+                
+                ax2.set_ylabel("Temperature (°C)")
+                ax2.set_xlabel("Time (s)")
+                ax2.grid(True, alpha=0.3)
+                ax2.legend(loc='upper left')
+                
+                # Twin axis for Pressure
+                if 'pressure' in df.columns:
+                     ax2_p = ax2.twinx()
+                     ax2_p.plot(t, df['pressure'], label='Pressure (Bar)', color='#2ecc71', linewidth=1.5)
+                     ax2_p.set_ylabel("Pressure (Bar)")
+                     # We can't easily merge legends of twin axes in one line, but this is fine.
+                
+                # Save
+                buf = io.BytesIO()
+                plt.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+                plt.close(fig)
+                return buf.getvalue()
+        except Exception as e:
+            # Fallback
+            return None
 
     @staticmethod
     @st.cache_data(show_spinner=False, ttl=60)
     def _create_reactivity_image(df):
-        """Creates a detailed reactivity balance graph."""
+        """Creates a detailed reactivity balance graph using Matplotlib."""
         if df.empty or 'rho_void' not in df.columns: return None
-        fig = go.Figure()
         
-        comps = ["rho_void", "rho_doppler", "rho_xenon", "rho_rods"]
-        colors = {"rho_void": "#e74c3c", "rho_doppler": "#3498db", "rho_xenon": "#9b59b6", "rho_rods": "#95a5a6"}
-        
-        for c in comps:
-             if c in df.columns:
-                 fig.add_trace(go.Scatter(
-                    x=df['time_seconds'], y=df[c], name=c.replace("rho_", "").title(),
-                    line=dict(color=colors.get(c, "#fff"), width=2)
-                ))
-        
-        if 'reactivity' in df.columns:
-            fig.add_trace(go.Scatter(x=df['time_seconds'], y=df['reactivity'], name="NET TOTAL", line=dict(color="white", width=4, dash='dot')))
-
-        fig.update_layout(
-            template="plotly_dark", title="Reactivity Balance (PCM)",
-            xaxis_title="Time (s)", yaxis_title="Reactivity (pcm)",
-            margin=dict(l=20, r=20, t=40, b=20), height=400, width=800
-        )
-        return fig.to_image(format="png", engine="kaleido")
+        try:
+            plt.switch_backend('Agg')
+            
+            with plt.style.context('dark_background'):
+                fig, ax = plt.subplots(figsize=(10, 6))
+                
+                t = df['time_seconds']
+                ax.plot(t, df['rho_void'], label='Void', color='#e74c3c')
+                ax.plot(t, df['rho_doppler'], label='Doppler', color='#3498db')
+                ax.plot(t, df['rho_xenon'], label='Xenon', color='#9b59b6')
+                ax.plot(t, df['rho_rods'], label='Control Rods', color='#95a5a6')
+                
+                # Plot Net Reactivity thicker and white
+                if 'reactivity' in df.columns:
+                    # Scale net reactivity to be visible? No, it's roughly same scale usually.
+                    ax.plot(t, df['reactivity'] * 10000, label='NET TOTAL (pcm)', color='white', linewidth=3, linestyle='--')
+                    # Note: engine stores rho_* in PCM already? 
+                    # Checking logic/engine.py: "rho_rods": self.reactivity_components.get("rods", 0) * 10000
+                    # Yes, they are stored as PCM.
+                    # 'reactivity' in telemetry is raw (not pcm). So we multiply by 10000.
+                
+                ax.set_title("Reactivity Balance (PCM)")
+                ax.set_ylabel("Reactivity (pcm)")
+                ax.set_xlabel("Time (s)")
+                ax.grid(True, alpha=0.3)
+                ax.legend()
+                
+                buf = io.BytesIO()
+                plt.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+                plt.close(fig)
+                return buf.getvalue()
+        except Exception as e:
+            return None

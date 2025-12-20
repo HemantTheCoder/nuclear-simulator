@@ -189,14 +189,18 @@ def show(navigate_func):
              st.rerun()
              
         # New: Forensic Download
-        pdf_data = ReportGenerator.generate_pdf(unit, unit.history)
-        st.download_button(
-            label="📄 DOWNLOAD FORENSIC REPORT (PDF)",
-            data=pdf_data,
-            file_name=f"ACCIDENT_REPORT_{unit.name}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
-            mime="application/pdf",
-            use_container_width=True
-        )
+        # New: Forensic Download
+        if st.checkbox("📄 GENERATE FORENSIC REPORT"):
+            with st.spinner("Compiling Forensic Data..."):
+                pdf_data = ReportGenerator.generate_pdf(unit, unit.history)
+                
+            st.download_button(
+                label="📥 DOWNLOAD PDF",
+                data=pdf_data,
+                file_name=f"ACCIDENT_REPORT_{unit.name}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
         
         return # STOP RENDERING CONTROLS
 
@@ -306,15 +310,19 @@ def show(navigate_func):
                 st.rerun()
             
             # New: Session Report
+            # New: Session Report
             st.markdown("---")
-            pdf_data = ReportGenerator.generate_pdf(unit, unit.history)
-            st.download_button(
-                label="📥 SAVE SESSION REPORT (PDF)",
-                data=pdf_data,
-                file_name=f"SESSION_{unit.name}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
+            if st.checkbox("📥 PREPARE SESSION REPORT"):
+                 with st.spinner("Compiling Report..."):
+                    pdf_data = ReportGenerator.generate_pdf(unit, unit.history)
+                 
+                 st.download_button(
+                    label="📄 DOWNLOAD PDF",
+                    data=pdf_data,
+                    file_name=f"SESSION_{unit.name}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
 
             if new_controls != controls:
                 # Log the User Action

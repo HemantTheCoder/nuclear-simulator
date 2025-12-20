@@ -11,9 +11,15 @@ st.set_page_config(
 )
 
 # Load Custom CSS
-def local_css(file_name):
+# Load Custom CSS
+@st.cache_data(show_spinner=False)
+def load_css_content(file_name):
     with open(file_name) as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+        return f.read()
+
+def local_css(file_name):
+    css = load_css_content(file_name)
+    st.markdown(f'<style>{css}</style>', unsafe_allow_html=True)
 
 local_css("assets/style.css")
 
