@@ -85,6 +85,11 @@ def show(navigate_func):
             - **SCRAM**: Emergency Shutdown.
             - **ECCS**: Emergency Cooling. Saves fuel, shocks vessel.
             - **VENT**: Releases pressure & radiation.
+
+            **NOMINAL LIMITS (GREEN ZONE)**
+            - **PWR**: Temp < 350°C | Press < 170 Bar
+            - **BWR**: Temp < 300°C | Press < 90 Bar
+            - **RBMK**: Temp < 300°C | Press < 90 Bar | Voids < 40%
             """)
 
     # --- 4. MAIN DASHBOARD ---
@@ -109,6 +114,31 @@ def show(navigate_func):
                     else: st.info(m["msg"])
 
         st.markdown("### CORE STATUS")
+        
+        # Warnings
+        if telemetry.get("warnings"):
+            warn_msg = " | ".join(telemetry["warnings"])
+            st.markdown(f"""
+            <div style="
+                background-color: #333; 
+                color: #ffcc00; 
+                padding: 10px; 
+                border-radius: 5px; 
+                border: 2px solid #ffcc00; 
+                text-align: center; 
+                font-weight: bold; 
+                margin-bottom: 10px; 
+                animation: blink-warn 1s infinite alternate;">
+                ⚠️ SYSTEM WARNING: {warn_msg}
+            </div>
+            <style>
+                @keyframes blink-warn {{
+                    from {{ border-color: #ffcc00; box-shadow: 0 0 5px #ffcc00; }}
+                    to {{ border-color: #ff0000; box-shadow: 0 0 15px #ff0000; color: #ff0000; }}
+                }}
+            </style>
+            """, unsafe_allow_html=True)
+            
         render_annunciator_panel(telemetry)
         
         # Audio Engine

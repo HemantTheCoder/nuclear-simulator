@@ -109,6 +109,7 @@ class ReactorUnit:
             "melted": False,
             "containment_integrity": 100.0,
             "radiation_released": 0.0, # Sieverts
+            "warnings": [],
         }
         
 
@@ -127,7 +128,7 @@ class ReactorUnit:
         
         # 1. OPTIMAL CONTROL STATE
         self.control_state = {
-            "rods_pos": 80.0, # 20% Withdrawal - Running State
+            "rods_pos": 65.0, # 35% Withdrawal - Matches ~30% Power (1000MW)
             "pump_speed": 100.0,
             "flow_rate_core": 100.0,
             "manual_scram": False,
@@ -166,7 +167,7 @@ class ReactorUnit:
             self.control_state["rods_pos"] = 70.0 # RBMK needs more withdrawal
             
         self.telemetry = {
-            "flux": 1.0, # Full Power
+            "flux": 1000.0 / 3200.0, # Match Target Payload (1000MW)
             "power_mw": 1000.0,
             "temp": target_temp,
             "pressure": target_press, 
@@ -189,6 +190,7 @@ class ReactorUnit:
             "melted": False,
             "containment_integrity": 100.0,
             "radiation_released": 0.0,
+            "warnings": [],
         }
         
         self.event_log = []
@@ -204,6 +206,52 @@ class ReactorUnit:
         
         # Reset physics layers if needed (simplified)
         self.physics.xenon_poisoning = 0.0
+        
+        # 3. TRIM TO EQUILIBRIUM (Auto-Stabilize)
+        self._trim_to_equilibrium()
+
+    def _trim_to_equilibrium(self):
+        """Calculates exact rod position for 0.0 Net Reactivity at current state."""
+        t = self.telemetry
+        conf = self.config
+        
+        # 1. Calculate Feedbacks at current state
+        # Void
+        void_fraction = t.get("void_fraction", 0.0)
+        fb_void = void_fraction * conf.void_coefficient
+        
+        # Doppler
+        fb_doppler = ((t["temp"] - 300) * 0.0001) * conf.doppler_coefficient
+        
+        # Xenon (Equilibrium)
+        # Note: logic/engine.py tick calcs fb_xenon as: (xenon - 1.0) * -0.01
+        # In reset, xenon is 1.0, so fb_xenon is 0.0.
+        fb_xenon = 0.0
+        
+        # Boron
+        # logic/engine.py: -(boron_ppm / 20000.0)
+        fb_boron = -(t.get("boron_ppm", 0.0) / 20000.0)
+        
+        total_external_rho = fb_void + fb_doppler + fb_xenon + fb_boron
+        
+        # 2. Solve for Rods
+        # Total Rho = Rho_Rods + Total_External
+        # We want Total Rho = 0
+        # Rho_Rods = -Total_External
+        rho_needed = -total_external_rho
+        
+        # ReactivityLayer: rho_rods = (50.0 - rods_pos) * 0.002
+        # rho_needed / 0.002 = 50.0 - rods_pos
+        # rods_pos = 50.0 - (rho_needed / 0.002)
+        
+        target_rods_pos = 50.0 - (rho_needed / 0.002)
+        
+        # Clamp just in case (though if physics breaks bounds, we have other issues)
+        self.control_state["rods_pos"] = max(0.0, min(100.0, target_rods_pos))
+        
+        # Align Physics Layer
+        self.physics.reactivity = 0.0
+        self.physics.neutron_flux = t["flux"]
 
     def log_event(self, message):
         """Logs a critical event if it hasn't just happened."""
@@ -545,6 +593,29 @@ class ReactorUnit:
             self.failure_cause = "Containment Vessel Rupture (Overpressure)"
             self.log_event("CONTAINMENT BREACHED")
             self.generate_post_mortem()
+
+        # Warning Logic (Pre-Alarm)
+        t["warnings"] = []
+        if t["health"] > 0: # Only warn if alive
+             # Type Specific Thresholds
+            warn_temp = 350.0 if self.type == ReactorType.PWR else 300.0
+            warn_press = 170.0 if self.type == ReactorType.PWR else 90.0
+            
+            if t["temp"] > warn_temp:
+                t["warnings"].append(f"HIGH TEMP (> {warn_temp:.0f}C)")
+            
+            if t["pressure"] > warn_press:
+                t["warnings"].append(f"HIGH PRESSURE (> {warn_press:.0f} Bar)")
+                
+            if t["flow_rate_core"] < 50.0 and t["power_mw"] > 100:
+                t["warnings"].append("LOW FLOW")
+                
+            if self.type == ReactorType.RBMK and t["void_fraction"] > 0.4:
+                 t["warnings"].append("HIGH VOID FRACTION")
+
+            if t["radiation_released"] > 0.001:
+                 t["warnings"].append(f"RADIATION LEAK ({t['radiation_released']:.3f} Sv)")
+
 
         # Precursor Logging
         if t["temp"] > 2000 and not any("Fuel Temperature Critical" in e["event"] for e in self.event_log[-3:]):

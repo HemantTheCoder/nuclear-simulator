@@ -15,6 +15,7 @@ def render_audio_engine(telemetry, sound_enabled=True):
     rad_level = telemetry.get("radiation_released", 0)
     melted = telemetry.get("melted", False)
     alarms_active = len(telemetry.get("alerts", [])) > 0
+    warnings_active = len(telemetry.get("warnings", [])) > 0
     
     # JS Logic
     js_code = f"""
@@ -113,6 +114,35 @@ def render_audio_engine(telemetry, sound_enabled=True):
             osc.stop(ctx.currentTime + 0.1);
         }}
 
+        function playSiren() {{
+            // Fast modulated rising/falling sine wave (URGENT)
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(600, ctx.currentTime);
+            // Cycle 1
+            osc.frequency.linearRampToValueAtTime(900, ctx.currentTime + 0.5);
+            osc.frequency.linearRampToValueAtTime(600, ctx.currentTime + 1.0);
+            // Cycle 2
+            osc.frequency.linearRampToValueAtTime(900, ctx.currentTime + 1.5);
+            osc.frequency.linearRampToValueAtTime(600, ctx.currentTime + 2.0);
+            // Cycle 3
+            osc.frequency.linearRampToValueAtTime(900, ctx.currentTime + 2.5);
+            osc.frequency.linearRampToValueAtTime(600, ctx.currentTime + 3.0);
+            // Cycle 4
+            osc.frequency.linearRampToValueAtTime(900, ctx.currentTime + 3.5);
+            osc.frequency.linearRampToValueAtTime(600, ctx.currentTime + 4.0);
+            
+            gain.gain.setValueAtTime(0.08, ctx.currentTime);
+            
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            
+            osc.start();
+            osc.stop(ctx.currentTime + 4.0);
+        }}
+
         // --- TRIGGER LOGIC ---
         
         // Resume context if suspended (browser policy)
@@ -127,6 +157,12 @@ def render_audio_engine(telemetry, sound_enabled=True):
              if (!window.lastKlaxon || now - window.lastKlaxon > 800) {{
                  playKlaxon();
                  window.lastKlaxon = now;
+             }}
+        }} else if ({str(warnings_active).lower()}) {{
+             // 1.5 WARNING SIREN (Lower Priority, Continuous Loop)
+             if (!window.lastSiren || now - window.lastSiren > 3800) {{
+                 playSiren();
+                 window.lastSiren = now;
              }}
         }}
         
