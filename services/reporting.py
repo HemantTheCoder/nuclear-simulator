@@ -5,6 +5,10 @@ import streamlit as st
 from fpdf import FPDF
 import matplotlib.pyplot as plt
 from datetime import datetime
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
 
 class ReportGenerator:
     """
