@@ -128,41 +128,56 @@ def show(navigate_func):
         st.markdown(f'<div style="text-align:center"><img src="data:image/svg+xml;base64,{b64_svg}" style="width:100%; max-height:400px;"></div>', unsafe_allow_html=True)
 
         # Telemetry Ribbon
-        m1, m2, m3, m4, m5 = st.columns(5)
+        # Telemetry Ribbon - Row 1 (Core Status)
+        m1, m2, m3 = st.columns(3)
         m1.metric("Pwr", f"{telemetry['power_mw']:.0f} MW")
         m2.metric("Temp", f"{telemetry['temp']:.0f} °C")
         m3.metric("Press", f"{telemetry.get('pressure',0):.1f} Bar")
+        
+        # Telemetry Ribbon - Row 2 (Secondary status)
+        m4, m5, m6 = st.columns(3)
         m4.metric("Lvl", f"{telemetry.get('water_level',5):.1f} m")
         m5.metric("Load", f"{controls.get('turbine_load_mw', 1000.0):.0f} MW")
         
-        # Radiation Monitor
         rads = telemetry.get('radiation_released', 0)
         if rads > 0:
-            st.metric("☢️ RAD RELEASE", f"{rads:.2f} Sv", delta_color="inverse")
+            m6.metric("☢️ RADS", f"{rads:.2f} Sv", delta_color="inverse")
+        else:
+            m6.metric("☢️ RADS", "0.00 Sv")
 
         with st.expander("🛠️ TECHNICAL ANALYSIS (NEUTRONICS)", expanded=False):
             rc = telemetry.get("reactivity_components", {})
-            c_rho1, c_rho2, c_rho3, c_rho4 = st.columns(4)
-            c_rho1.metric("Net Rho", f"{telemetry['reactivity']*10000:.0f} pcm")
-            c_rho2.metric("Rod Worth", f"{rc.get('rods',0)*10000:.0f} pcm")
-            c_rho3.metric("Void Coeff", f"{rc.get('void',0)*10000:.0f} pcm")
-            c_rho4.metric("Doppler", f"{rc.get('doppler',0)*10000:.0f} pcm")
             
-            c_rho5, c_rho6, c_rho7 = st.columns(3)
-            c_rho5.metric("Xenon Poison", f"{rc.get('xenon',0)*10000:.0f} pcm")
-            c_rho6.metric("Boron Poison", f"{rc.get('boron',0)*10000:.0f} pcm")
-            c_rho7.metric("Period", f"{telemetry.get('period', 999):.1f} s")
+            # Row 1: High Level
+            c_rho1, c_rho2, c_rho3 = st.columns(3)
+            c_rho1.metric("Net Rho", f"{telemetry['reactivity']*10000:.0f} pcm")
+            c_rho2.metric("Period", f"{telemetry.get('period', 999):.1f} s")
+            c_rho3.metric("Rod Worth", f"{rc.get('rods',0)*10000:.0f} pcm")
+            
+            # Row 2: Coefficients
+            c_rho4, c_rho5 = st.columns(2)
+            c_rho4.metric("Void Coeff", f"{rc.get('void',0)*10000:.0f} pcm")
+            c_rho5.metric("Doppler", f"{rc.get('doppler',0)*10000:.0f} pcm")
+            
+            # Row 3: Poisons
+            c_rho6, c_rho7 = st.columns(2)
+            c_rho6.metric("Xenon Poison", f"{rc.get('xenon',0)*10000:.0f} pcm")
+            c_rho7.metric("Boron Poison", f"{rc.get('boron',0)*10000:.0f} pcm")
             
             st.divider()
             st.caption("🌊 THERMAL HYDRAULICS & SAFETY MARGINS")
-            c_th1, c_th2, c_th3, c_th4 = st.columns(4)
+            # Row 1: Flow & Safety
+            c_th1, c_th2 = st.columns(2)
             c_th1.metric("Mass Flow", f"{telemetry.get('mass_flow', 0)/1000.0:.1f} t/s")
-            c_th2.metric("T-Inlet", f"{telemetry.get('t_inlet', 0):.1f} °C")
-            c_th3.metric("T-Outlet", f"{telemetry.get('t_outlet', 0):.1f} °C")
             
             dnbr = telemetry.get('dnbr', 99.9)
             dnbr_delta = "CRITICAL" if dnbr < 1.3 else "SAFE"
-            c_th4.metric("DNBR", f"{dnbr:.2f}", delta=dnbr_delta, delta_color="normal" if dnbr > 1.3 else "inverse")
+            c_th2.metric("DNBR", f"{dnbr:.2f}", delta=dnbr_delta, delta_color="normal" if dnbr > 1.3 else "inverse")
+            
+            # Row 2: Temps
+            c_th3, c_th4 = st.columns(2)
+            c_th3.metric("T-Inlet", f"{telemetry.get('t_inlet', 0):.1f} °C")
+            c_th4.metric("T-Outlet", f"{telemetry.get('t_outlet', 0):.1f} °C")
 
 
     # CHECK FOR DEATH
