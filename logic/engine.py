@@ -505,7 +505,7 @@ class ReactorUnit:
         self.post_mortem_report = {
             "cause": cause,
             "explanation": explanation,
-            "prevention": tips,
+            "prevention": [tips] if isinstance(tips, str) else (tips if tips else []),
             "timeline": self.event_log[-10:] # Last 10 events
         }
         

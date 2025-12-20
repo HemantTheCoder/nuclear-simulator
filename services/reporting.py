@@ -28,17 +28,36 @@ class ReportGenerator:
         pdf.set_font("helvetica", "I", 12)
         pdf.set_text_color(100, 100, 100)
         pdf.cell(0, 10, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=1, align='C')
-        pdf.ln(10)
+        
+        # Horizontal Line
+        pdf.set_draw_color(200, 200, 200)
+        pdf.line(10, pdf.get_y()+5, 200, pdf.get_y()+5)
+        pdf.ln(15)
         
         # --- UNIT IDENTITY ---
         pdf.set_font("helvetica", "B", 16)
         pdf.set_text_color(0, 0, 0)
-        pdf.cell(0, 10, f"Reactor Unit: {str(unit.name)}", ln=1)
+        # Center the Unit Info Box
+        pdf.cell(0, 10, f"Reactor Unit: {str(unit.name)}", ln=1, align='C')
+        
         pdf.set_font("helvetica", "", 12)
         health = unit.telemetry.get('health', 100.0)
-        pdf.cell(0, 8, f"Final Status: {'DESTROYED' if health <=0 else 'OPERATIONAL'}", ln=1)
-        pdf.cell(0, 8, f"Final Temperature: {unit.telemetry.get('temp', 0):.1f} C", ln=1)
-        pdf.cell(0, 8, f"Radiation Released: {unit.telemetry.get('radiation_released', 0):.2f} Sv", ln=1)
+        status_str = 'DESTROYED' if health <=0 else 'OPERATIONAL'
+        
+        # Simple table-like structure for metrics
+        x_start = 60
+        pdf.set_x(x_start)
+        pdf.cell(50, 8, "Final Status:", border=0)
+        pdf.cell(0, 8, status_str, ln=1)
+        
+        pdf.set_x(x_start)
+        pdf.cell(50, 8, "Final Temperature:", border=0)
+        pdf.cell(0, 8, f"{unit.telemetry.get('temp', 0):.1f} C", ln=1)
+        
+        pdf.set_x(x_start)
+        pdf.cell(50, 8, "Radiation Released:", border=0)
+        pdf.cell(0, 8, f"{unit.telemetry.get('radiation_released', 0):.2f} Sv", ln=1)
+        pdf.ln(10)
         pdf.ln(10)
         
         # --- CHAIN OF EVENTS ---
@@ -53,12 +72,21 @@ class ReportGenerator:
             # Use X position for the message to avoid multi_cell width calculation issues
             curr_y = pdf.get_y()
             pdf.cell(25, 6, time_str, border=0)
+            
+            # Calculate width remaining
+            page_width = pdf.w - pdf.l_margin - pdf.r_margin
+            msg_width = page_width - 35
+            
             pdf.set_x(35) # Move to fixed X for the message
-            pdf.multi_cell(0, 6, msg)
+            pdf.multi_cell(msg_width, 6, msg)
             
             # Ensure next line starts after the multi_cell block
-            if pdf.get_y() <= curr_y: 
-                pdf.ln(6)
+            # If multi_cell didn't wrap, get_y might not have advanced much if we forced set_x back? 
+            # FPDF's multi_cell advances Y.
+            # But we need to make sure we don't overwrite if manual Y management needed.
+            # Actually standard multi_cell behavior is fine, but we need to ensure the TIME column checks alignment
+            # For list items, simple flow is usually okay.
+            pass
         
         # --- ANALYSIS (From Post-Mortem) ---
         if unit.post_mortem_report:
@@ -72,10 +100,26 @@ class ReportGenerator:
             pdf.set_font("helvetica", "B", 12)
             pdf.cell(0, 8, "Prevention Steps:", ln=1)
             pdf.set_font("helvetica", "", 11)
-            for tip in unit.post_mortem_report['prevention']:
-                pdf.cell(10, 8, "-", align='R')
+            pdf.set_font("helvetica", "", 11)
+            
+            # Robust iteration (handle string or list)
+            tips = unit.post_mortem_report['prevention']
+            if isinstance(tips, str):
+                tips = [tips]
+                
+            for tip in tips:
+                pdf.set_x(20) # Indent
+                pdf.cell(5, 8, "-", align='R')
+                
+                # Handling multi-line tips
                 t_msg = str(tip).encode('latin-1', 'ignore').decode('latin-1')
-                pdf.cell(0, 8, t_msg, ln=1)
+                
+                # Calculate remaining width
+                page_width = pdf.w - pdf.l_margin - pdf.r_margin
+                curr_x = pdf.get_x()
+                width_avail = page_width - curr_x
+                
+                pdf.multi_cell(width_avail, 8, t_msg)
 
         # --- GRAPHS ---
         if session_history:

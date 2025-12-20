@@ -144,7 +144,7 @@ def show(navigate_func):
             with c1:
                 st.markdown("### 🔬 ACCIDENT ANALYSIS")
                 st.info(report["explanation"])
-                if report["prevention"]:
+                if report.get("prevention"):
                     st.success(f"**PREVENTION:** {report['prevention']}")
             
             with c2:
