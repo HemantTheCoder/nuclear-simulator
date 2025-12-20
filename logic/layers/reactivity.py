@@ -20,17 +20,16 @@ class ReactivityLayer:
         rho_rods = (50.0 - rods_pos) * 0.002 # 0.1 total swing
         
         # 2. Thermal Feedback (Doppler + Moderator)
-        # Negative feedback: Higher temp -> Lower reactivity
-        temp_delta = temp - 300.0 # Base temp 300C
-        rho_temp = -0.0001 * temp_delta 
+        # DISABLED: engine.py handles this via extra_k
+        rho_temp = 0.0 
         
         # 3. Xenon (Simplified)
-        # Xenon grows with Flux, decays with time
-        # Here we just treat it as a load that grows at high pow
-        if self.neutron_flux > 1.2:
-            self.xenon_poisoning += 0.00005 * dt
-        else:
-            self.xenon_poisoning *= 0.999 # Decay
+        # DISABLED: engine.py handles this via extra_k
+        # if self.neutron_flux > 1.2:
+        #    self.xenon_poisoning += 0.00005 * dt
+        # else:
+        #    self.xenon_poisoning *= 0.999 # Decay
+        self.xenon_poisoning = 0.0
             
         # Total Reactivity
         self.reactivity = rho_rods + rho_temp - self.xenon_poisoning + extra_k

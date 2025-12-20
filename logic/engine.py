@@ -135,7 +135,7 @@ class ReactorUnit:
             "safety_enabled": True,
             # Type specific
             # PWR
-            "boron_concentration": 500.0 if r_type == ReactorType.PWR else 0.0, # Burned in
+            "boron_concentration": 500.0 if r_type == ReactorType.PWR else 0.0, # Match Telemetry
             "pressurizer_heaters": False,
             "pressurizer_sprays": False,
             # BWR/RBMK
@@ -216,8 +216,12 @@ class ReactorUnit:
         conf = self.config
         
         # 1. Calculate Feedbacks at current state
-        # Void
-        void_fraction = t.get("void_fraction", 0.0)
+        # Void (Recalculate expected void to match Tick logic)
+        void_fraction = 0.0
+        if t["temp"] > 280:
+             void_fraction = min(1.0, (t["temp"] - 280) * 0.01) * (t["power_mw"]/3200.0)
+        t["void_fraction"] = void_fraction # Sync telemetry
+        
         fb_void = void_fraction * conf.void_coefficient
         
         # Doppler
