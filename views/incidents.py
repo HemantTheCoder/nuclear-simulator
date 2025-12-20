@@ -205,13 +205,17 @@ def show_reconstruction(scenario, navigate_func):
                  self.nominal_power_mw = 3200 if "Chernobyl" in scenario.title else 1000
                  self.nominal_temp = 300
                  self.fuel_limit_temp = 2800
+                 self.void_coefficient = 0.02 if "Chernobyl" in scenario.title else -0.01
+                 self.doppler_coefficient = -0.002
 
         mock_unit = type('Mock', (), {
             'name': scenario.title,
-            'type': type('Type', (), {'name': scenario.id.upper()}),
+            'id': 'INCIDENT_PLAYBACK',
+            'type': type('Type', (), {'name': scenario.id.upper(), 'value': scenario.id.upper()}),
             'config': MockConfig(),
             'telemetry': t,
-            'event_log': [{"timestamp": p['time'], "message": f"{p['label']}: {p['desc']}"} for p in scenario.phases],
+            'control_state': {},
+            'event_log': [{"time": p['time'], "event": f"{p['label']}: {p['desc']}"} for p in scenario.phases],
             'post_mortem_report': {
                 'explanation': scenario.phases[-1]['analysis'],
                 'prevention': ["Better design", "Training", "Independent safety"]

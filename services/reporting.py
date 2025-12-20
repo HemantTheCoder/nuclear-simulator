@@ -178,13 +178,14 @@ class ReportGenerator:
              
              # Print all events (User requested "full")
              for e in unit.event_log:
-                 ts = e.get("timestamp", 0)
+                 ts = e.get("time", e.get("timestamp", 0))
                  # Handle float timestamp or datetime object if needed, usually float
                  try:
                      timestamp = datetime.fromtimestamp(ts).strftime("%H:%M:%S") if isinstance(ts, (int, float)) else str(ts)
                  except: timestamp = "00:00:00"
                      
-                 msg = f"[{timestamp}] {e.get('message', '')}"
+                 msg_text = e.get("event", e.get("message", ""))
+                 msg = f"[{timestamp}] {msg_text}"
                  pdf.multi_cell(0, 4, msg)
         
         # --- FULL TELEMETRY SNAPSHOT ---
