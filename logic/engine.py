@@ -1,7 +1,7 @@
-from logic.layers.reactivity import ReactivityLayer
-from logic.layers.thermal import ThermalLayer
-from logic.layers.safety import SafetyLayer
-from logic.scenarios.historical import SCENARIOS
+from .layers.reactivity import ReactivityLayer
+from .layers.thermal import ThermalLayer
+from .layers.safety import SafetyLayer
+from .scenarios.historical import SCENARIOS
 from enum import Enum
 import math
 import random
