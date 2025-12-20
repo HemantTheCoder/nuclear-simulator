@@ -4,3 +4,4 @@ kaleido
 plotly
 pandas
 streamlit
+matplotlib
