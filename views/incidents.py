@@ -200,11 +200,18 @@ def show_reconstruction(scenario, navigate_func):
         
         st.markdown("---")
         # Forensic Report Generator
+        class MockConfig:
+             def __init__(self):
+                 self.nominal_power_mw = 3200 if "Chernobyl" in scenario.title else 1000
+                 self.nominal_temp = 300
+                 self.fuel_limit_temp = 2800
+
         mock_unit = type('Mock', (), {
             'name': scenario.title,
             'type': type('Type', (), {'name': scenario.id.upper()}),
+            'config': MockConfig(),
             'telemetry': t,
-            'event_log': [{"time": p['time'], "event": f"{p['label']}: {p['desc']}"} for p in scenario.phases],
+            'event_log': [{"timestamp": p['time'], "message": f"{p['label']}: {p['desc']}"} for p in scenario.phases],
             'post_mortem_report': {
                 'explanation': scenario.phases[-1]['analysis'],
                 'prevention': ["Better design", "Training", "Independent safety"]
