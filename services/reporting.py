@@ -130,9 +130,19 @@ class ReportGenerator:
             df = pd.DataFrame(session_history)
             
             try:
+                # Use cached generation to prevent Kaleido resource leaks
                 img_bytes = ReportGenerator._create_trend_image(df)
+                
+                # FPDF 2.0+ handles bytes directly if passed as a stream-like object or sometimes directly
+                # It's safer to wrap in BytesIO with a name property if possible, or just pass bytes if FPDF supports it.
+                # Assuming previous code worked, we keep it. But let's be explicit with a temp buffer if needed.
+                # Actually, FPDF often needs a stream for bytes.
                 if img_bytes:
-                    pdf.image(img_bytes, x=10, y=30, w=190)
+                    import io
+                    # Create a BytesIO object with a name attribute so FPDF knows it's a PNG
+                    img_stream = io.BytesIO(img_bytes)
+                    img_stream.name = 'temp_trend.png' 
+                    pdf.image(img_stream, x=10, y=30, w=190)
             except Exception as e:
                 pdf.set_font("helvetica", "I", 10)
                 pdf.cell(0, 10, f"(Graph generation skipped: {str(e)})", ln=1)
@@ -144,8 +154,10 @@ class ReportGenerator:
         return pdf_bytes.encode('latin-1')
 
     @staticmethod
+    @st.cache_data(show_spinner=False, ttl=60)
     def _create_trend_image(df):
         """Creates a static graph image for PDF inclusion."""
+        if df.empty: return None
         fig = go.Figure()
         
         # Color palette
