@@ -186,6 +186,7 @@ class ReportGenerator:
                      
                  msg_text = e.get("event", e.get("message", ""))
                  msg = f"[{timestamp}] {msg_text}"
+                 pdf.set_x(pdf.l_margin)
                  pdf.multi_cell(0, 4, msg)
         
         # --- FULL TELEMETRY SNAPSHOT ---
