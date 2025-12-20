@@ -455,6 +455,9 @@ def generate_operator_manual_pdf(content_dict):
         if "limits" in section:
             flowables.append(Paragraph(clean_md(section["limits"]), body_style))
             
+        if "controls" in section:
+            flowables.append(Paragraph(clean_md(section["controls"]), body_style))
+
         if "tips" in section:
             flowables.append(Paragraph(clean_md(section["tips"]), body_style))
             

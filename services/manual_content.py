@@ -38,6 +38,14 @@ MANUAL_CONTENT = {
         "tips": """
         -   **Pressure Control**: Use Heaters to raise pressure, Sprays to lower it.
         -   **Reactivity**: Use Boron for long-term power changes, Rods for short-term.
+        """,
+        "controls": """
+        **PRIMARY CONTROLS**
+        -   **Control Rods**: Main reactivity control. Pull **OUT** (higher number) to increase power. Push **IN** to shut down.
+        -   **Boron (PPM)**: Chemical shim. **LOWER** concentration to increase reactivity (long-term burnup compensation).
+        -   **Pressurizer Heaters**: Turn **ON** to boil water in the pressurizer and **increase** system pressure.
+        -   **Pressurizer Spray**: Turn **ON** to condense steam and **decrease** system pressure.
+        -   **RCP Pumps**: Main coolant flow. Keep matched to power level to maintain Delta-T.
         """
     },
     "bwr": {
@@ -56,6 +64,13 @@ MANUAL_CONTENT = {
         "tips": """
         -   **Level Control**: Keep water covering the core! Feedwater flow must match Steam flow.
         -   **Turbine Trip**: If the turbine trips, open Bypass immediately to prevent overpressure.
+        """,
+        "controls": """
+        **PRIMARY CONTROLS**
+        -   **Control Rods**: Bottom-entry rods. Pull **OUT** to increase power. Also affects axial flux shape.
+        -   **Recirculation Pumps**: **INCREASE** flow to sweep away steam voids, adding reactivity (Spectral Shift). **DECREASE** flow to lower power.
+        -   **Feedwater**: Controls Reactor Water Level. Must match steam output.
+        -   **Turbine Bypass**: Steam dump valve. Open to lower pressure if the turbine cannot accept steam (Trip).
         """
     },
     "rbmk": {
@@ -75,6 +90,12 @@ MANUAL_CONTENT = {
         "tips": """
         -   **DANGER**: Do not operate at low power (< 700MW).
         -   **AZ-5**: The Emergency Scram button. Note: Early rod insertion may spike power (Tip Effect).
+        """,
+        "controls": """
+        **PRIMARY CONTROLS**
+        -   **Control Rods**: Main reactivity control. Pull **OUT** to increase power. **CAUTION**: Graphite followers cause positive scram effect.
+        -   **Main Circ Pumps**: Coolant flow. **INCREASE** flow to reduce voids and lower localized power (danger of cavitation if too high).
+        -   **Feedwater**: Controls Drum Level. Essential for natural circulation stability.
         """
     }
 }

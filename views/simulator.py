@@ -29,6 +29,7 @@ def render_onboarding_wizard():
         with col1:
             st.markdown("### Specifications")
             st.markdown(c["specs"])
+            st.info(c["controls"])
         with col2:
             st.markdown("### Safety Limits")
             st.error(c["limits"])
@@ -42,6 +43,7 @@ def render_onboarding_wizard():
         with col1:
             st.markdown("### Specifications")
             st.markdown(c["specs"])
+            st.info(c["controls"])
         with col2:
             st.markdown("### Safety Limits")
             st.error(c["limits"])
@@ -55,6 +57,7 @@ def render_onboarding_wizard():
         with col1:
             st.markdown("### Specifications")
             st.markdown(c["specs"])
+            st.info(c["controls"])
         with col2:
             st.markdown("### Safety Limits")
             st.error(c["limits"])
